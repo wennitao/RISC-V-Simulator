@@ -2,6 +2,7 @@
 #include <sstream>
 
 #include "decode.hpp"
+#include "runcode.hpp"
 
 using namespace std ;
 
@@ -32,7 +33,8 @@ void run () {
         unsigned op = (memory[pc + 3] << 24) + (memory[pc + 2] << 16) + (memory[pc + 1] << 8) + memory[pc] ;
         if (op == 0) break ;
         decode _decode = decode (op) ;
-        
+        operation_parameter parameter = _decode.decode_op () ;
+        runcode _runcode = runcode (parameter) ;
     }
 }
 int main() {

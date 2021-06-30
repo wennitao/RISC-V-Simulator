@@ -15,6 +15,7 @@ enum optype {
 } ;
 
 struct operation_parameter {
+    char TYPE ;
     optype type ;
     unsigned int rs, rt, rd, imm, shamt ;
 } ;
@@ -39,14 +40,17 @@ public:
         unsigned int opcode = op & 127 ;
         operation_parameter result ;
         if (opcode == 55) {
+            result.TYPE = 'U' ;
             result.type = lui ;
             result.rd = (op >> 7) & ((1 << 5) - 1) ;
             result.imm = (op >> 12) << 12 ;
         } else if (opcode == 23) {
+            result.TYPE = 'U' ;
             result.type = auipc ;
             result.rd = (op >> 7) & ((1 << 5) - 1) ;
             result.imm = (op >> 12) << 12 ;
         } else if (opcode == 111) {
+            result.TYPE = 'J' ;
             result.type = jal ;
             result.rd = (op >> 7) & ((1 << 5) - 1) ;
             result.imm = ((op >> 12) & ((1 << 8) - 1)) << 12 ;
@@ -55,11 +59,13 @@ public:
             result.imm |= (op >> 31) << 20 ;
             result.imm = sext (result.imm, 20) ;
         } else if (opcode == 103) {
+            result.TYPE = 'I' ;
             result.type = jalr ;
             result.rd = (op >> 7) & ((1 << 5) - 1) ;
             result.rs = (op >> 15) & ((1 << 5) - 1) ;
             result.imm = sext (op >> 20, 11) ;
         } else if (opcode == 99) {
+            result.TYPE = 'B' ;
             result.rs = (op >> 15) & ((1 << 5) - 1) ;
             result.rt = (op >> 20) & ((1 << 5) - 1) ;
             result.imm = ((op >> 7) & 1) << 11 ;
@@ -83,6 +89,7 @@ public:
                 result.type = bgeu ;
             }
         } else if (opcode == 3) {
+            result.TYPE = 'I' ;
             result.rd = (op >> 7) & ((1 << 5) - 1) ;
             result.rs = (op >> 15) & ((1 << 5) - 1) ;
             result.imm = sext (op >> 20, 11) ;
@@ -100,6 +107,7 @@ public:
                 result.type = lhu ;
             }
         } else if (opcode == 35) {
+            result.TYPE = 'S' ;
             result.rs = (op >> 15) & ((1 << 5) - 1) ;
             result.rt = (op >> 20) & ((1 << 5) - 1) ;
             result.imm = (op >> 7) & ((1 << 5) - 1) ;
@@ -115,6 +123,7 @@ public:
                 result.type = sw ;
             }
         } else if (opcode == 19) {
+            result.TYPE = 'I' ;
             result.rd = (op >> 7) & ((1 << 5) - 1) ;
             result.rs = (op >> 15) & ((1 << 5) - 1) ;
             result.imm = sext (op >> 20, 11) ;
@@ -152,6 +161,7 @@ public:
             }
             
         } else if (opcode == 51) {
+            result.TYPE = 'R' ;
             result.rd = (op >> 7) & ((1 << 5) - 1) ;
             result.rs = (op >> 15) & ((1 << 5) - 1) ;
             result.rt = (op >> 20) & ((1 << 5) - 1) ;

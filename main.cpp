@@ -10,7 +10,6 @@ unsigned int reg[32] ;
 unsigned char memory[100000] ;
 
 void input () {
-    freopen("sample.data", "r", stdin) ;
     unsigned int pos ;
     string s ;
     while (getline (cin, s)) {
@@ -29,9 +28,12 @@ void input () {
 }
 void run () {
     pc = 0 ;
-    unsigned op = (memory[pc + 3] << 24) + (memory[pc + 2] << 16) + (memory[pc + 1] << 8) + memory[pc] ;
-    decode _decode = decode (op) ;
-    optype _optype = _decode.decode_op() ;
+    while (1) {
+        unsigned op = (memory[pc + 3] << 24) + (memory[pc + 2] << 16) + (memory[pc + 1] << 8) + memory[pc] ;
+        if (op == 0) break ;
+        decode _decode = decode (op) ;
+        
+    }
 }
 int main() {
     input () ;

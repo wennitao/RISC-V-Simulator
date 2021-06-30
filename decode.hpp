@@ -14,6 +14,11 @@ enum optype {
     add, sub, sll, slt, sltu, _xor, srl, sra, _or, _and
 } ;
 
+struct operation_parameter {
+    optype type ;
+    unsigned int rs, rt, rd, imm, shamt ;
+} ;
+
 class decode {
 private:
     unsigned int op ;
@@ -22,150 +27,164 @@ public:
     decode () {}
     decode (unsigned int _op) : op (_op) {}
 
-    optype decode_op () {
+    unsigned int sext (unsigned int x, int bit) {
+        if ((x >> (bit - 1)) & 1) {
+            unsigned int tmp = ~((1 << bit) - 1) ;
+            x = x | tmp ;
+        }
+        return x ;
+    }
+
+    operation_parameter decode_op () {
         unsigned int opcode = op & 127 ;
+        operation_parameter result ;
         if (opcode == 55) {
-            cout << "lui" << endl ;
-            return lui ;
+            result.type = lui ;
+            result.rd = (op >> 7) & ((1 << 5) - 1) ;
+            result.imm = (op >> 12) << 12 ;
         } else if (opcode == 23) {
-            cout << "auipc" << endl ;
-            return auipc ;
+            result.type = auipc ;
+            result.rd = (op >> 7) & ((1 << 5) - 1) ;
+            result.imm = (op >> 12) << 12 ;
         } else if (opcode == 111) {
-            cout << "jal" << endl ;
-            return jal ;
+            result.type = jal ;
+            result.rd = (op >> 7) & ((1 << 5) - 1) ;
+            result.imm = ((op >> 12) & ((1 << 8) - 1)) << 12 ;
+            result.imm |= ((op >> 20) & 1) << 11 ;
+            result.imm |= ((op >> 21) & ((1 << 10) - 1)) << 1 ;
+            result.imm |= (op >> 31) << 20 ;
+            result.imm = sext (result.imm, 20) ;
         } else if (opcode == 103) {
-            cout << "jalr" << endl ;
-            return jalr ;
+            result.type = jalr ;
+            result.rd = (op >> 7) & ((1 << 5) - 1) ;
+            result.rs = (op >> 15) & ((1 << 5) - 1) ;
+            result.imm = sext (op >> 20, 11) ;
         } else if (opcode == 99) {
-            cout << "B Type" << endl ;
+            result.rs = (op >> 15) & ((1 << 5) - 1) ;
+            result.rt = (op >> 20) & ((1 << 5) - 1) ;
+            result.imm = ((op >> 7) & 1) << 11 ;
+            result.imm |= ((op >> 8) & ((1 << 4) - 1)) << 1 ;
+            result.imm |= ((op >> 25) & ((1 << 6) - 1)) << 5 ;
+            result.imm |= (op >> 31) << 12 ;
+            result.imm = sext (result.imm, 12) ;
+
             unsigned int funct3 = op & (7 << 12) ;
             if (funct3 == 0) {
-                cout << "beq" << endl ;
-                return beq ;
+                result.type = beq ;
             } else if (funct3 == 1) {
-                cout << "bne" << endl ;
-                return bne ;
+                result.type = bne ;
             } else if (funct3 == 4) {
-                cout << "blt" << endl ;
-                return blt ;
+                result.type = blt ;
             } else if (funct3 == 5) {
-                cout << "bge" << endl ;
-                return bge ;
+                result.type = bge ;
             } else if (funct3 == 6) {
-                cout << "bltu" << endl ;
-                return bltu ;
+                result.type = bltu ;
             } else if (funct3 == 7) {
-                cout << "bgeu" << endl ;
-                return bgeu ;
+                result.type = bgeu ;
             }
         } else if (opcode == 3) {
-            cout << "I Type" << endl ;
+            result.rd = (op >> 7) & ((1 << 5) - 1) ;
+            result.rs = (op >> 15) & ((1 << 5) - 1) ;
+            result.imm = sext (op >> 20, 11) ;
+
             unsigned int funct3 = (op & (7 << 12)) >> 12 ;
             if (funct3 == 0) {
-                cout << "lb" << endl ;
-                return lb ;
+                result.type = lb ;
             } else if (funct3 == 1) {
-                cout << "lh" << endl ;
-                return lh ;
+                result.type = lh ;
             } else if (funct3 == 2) {
-                cout << "lw" << endl ;
-                return lw ;
+                result.type = lw ;
             } else if (funct3 == 4) {
-                cout << "lbu" << endl ;
-                return lbu ;
+                result.type = lbu ;
             } else if (funct3 == 5) {
-                cout << "lhu" << endl ;
-                return lhu ;
+                result.type = lhu ;
             }
         } else if (opcode == 35) {
-            cout << "S Type" << endl ;
+            result.rs = (op >> 15) & ((1 << 5) - 1) ;
+            result.rt = (op >> 20) & ((1 << 5) - 1) ;
+            result.imm = (op >> 7) & ((1 << 5) - 1) ;
+            result.imm |= ((op >> 25) & ((1 << 7) - 1)) << 5 ;
+            result.imm = sext (result.imm, 11) ;
+
             unsigned int funct3 = (op & (7 << 12)) >> 12 ;
             if (funct3 == 0) {
-                cout << "sb" << endl ;
-                return sb ;
+                result.type = sb ;
             } else if (funct3 == 1) {
-                cout << "sh" << endl ;
-                return sh ;
+                result.type = sh ;
             } else if (funct3 == 2) {
-                cout << "sw" << endl ;
-                return sw ;
+                result.type = sw ;
             }
         } else if (opcode == 19) {
-            cout << "I Type" << endl ;
+            result.rd = (op >> 7) & ((1 << 5) - 1) ;
+            result.rs = (op >> 15) & ((1 << 5) - 1) ;
+            result.imm = sext (op >> 20, 11) ;
+
             unsigned int funct3 = (op & (7 << 12)) >> 12 ;
             unsigned int funct7 = (op & (255u << 25)) >> 25 ;
             if (funct3 == 0) {
-                cout << "addi" << endl ;
-                return addi ;
+                result.type = addi ;
             } else if (funct3 == 1) {
                 if (funct7 == 0) {
-                    cout << "slli" << endl ;
-                    return slli ;
+                    result.type = slli ;
+                    result.shamt = (op >> 20) & ((1 << 5) - 1) ;
+                    result.imm = 0 ;
                 }
             } else if (funct3 == 2) {
-                cout << "slti" << endl ;
-                return slti ;
+                result.type = slti ;
             } else if (funct3 == 3) {
-                cout << "sltiu" << endl ;
-                return sltiu ;
+                result.type = sltiu ;
             } else if (funct3 == 4) {
-                cout << "xori" << endl ;
-                return xori ;
+                result.type = xori ;
             } else if (funct3 == 5) {
                 if (funct7 == 0) {
-                    cout << "srli" << endl ; 
-                    return srli ;
+                    result.type = srli ;
+                    result.shamt = (op >> 20) & ((1 << 5) - 1) ;
+                    result.imm = 0 ;
                 } else if (funct7 == 32) {
-                    cout << "srai" << endl ;
-                    return srai ;
+                    result.type = srai ;
+                    result.shamt = (op >> 20) & ((1 << 5) - 1) ;
+                    result.imm = 0 ;
                 }
             } else if (funct3 == 6) {
-                cout << "ori" << endl ;
-                return ori ;
+                result.type = ori ;
             } else if (funct3 == 7) {
-                cout << "andi" << endl ;
-                return andi ;
+                result.type = andi ;
             }
+            
         } else if (opcode == 51) {
-            cout << "R Type" << endl ;
+            result.rd = (op >> 7) & ((1 << 5) - 1) ;
+            result.rs = (op >> 15) & ((1 << 5) - 1) ;
+            result.rt = (op >> 20) & ((1 << 5) - 1) ;
+
             unsigned int funct3 = (op & (7 << 12)) >> 12 ;
             unsigned int funct7 = (op & (255u << 25)) >> 25 ;
             if (funct3 == 0) {
                 if (funct7 == 0) {
-                    cout << "add" << endl ;
-                    return add ;
+                    result.type = add ;
                 } else if (funct7 == 32) {
-                    cout << "sub" << endl ;
-                    return sub ;
+                    result.type = sub ;
                 }
             } else if (funct3 == 1) {
-                cout << "sll" << endl ;
-                return sll ;
+                result.type = sll ;
             } else if (funct3 == 2) {
-                cout << "slt" << endl ;
-                return slt ;
+                result.type = slt ;
             } else if (funct3 == 3) {
-                cout << "sltu" << endl ;
-                return sltu ;
+                result.type = sltu ;
             } else if (funct3 == 4) {
-                cout << "xor" << endl ;
-                return _xor ;
+                result.type = _xor ;
             } else if (funct3 == 5) {
                 if (funct7 == 0) {
-                    cout << "srl" << endl ;
-                    return srl ;
+                    result.type = srl ;
                 } else if (funct7 == 32) {
-                    cout << "sra" << endl ;
-                    return sra ;
+                    result.type = sra ;
                 }
             } else if (funct3 == 6) {
-                cout << "or" << endl ;
-                return _or ;
+                result.type = _or ;
             } else if (funct3 == 7) {
-                cout << "and" << endl ;
-                return  _and ;
+                result.type = _and ;
             }
         }
+        return result ;
     }
 } ;
 

@@ -33,6 +33,7 @@ public:
         switch (op.type) {
             case lui: {
                 printf("lui %x, %x\n", op.rd, op.imm) ;
+                result = op.imm ;
                 npc = pc + 4 ;
                 break ;
             }
@@ -45,7 +46,7 @@ public:
             case jal: {
                 printf("jal %x, %x\n", op.rd, op.imm) ;
                 result = pc + 4 ;
-                npc = pc + op.imm ;
+                npc += op.imm ;
                 break ;
             }
             case jalr: {
@@ -94,6 +95,7 @@ public:
                 printf("lb %x, %x(%x)\n", op.rd, op.imm, op.rs) ;
                 unsigned int pos = reg[op.rs] + op.imm ;
                 result = sext (memory[pos], 7) ;
+                npc = pc + 4 ;
                 break ;
             }
             case lh: {
@@ -101,142 +103,168 @@ public:
                 unsigned int pos = reg[op.rs] + op.imm ;
                 result = (memory[pos + 1] << 8) + memory[pos] ;
                 result = sext (result, 16) ;
+                npc = pc + 4 ;
                 break ;
             }
             case lw: {
                 printf("lw %x, %x(%x)\n", op.rd, op.imm, op.rs) ;
                 unsigned int pos = reg[op.rs] + op.imm ;
                 result = (memory[pos + 3] << 24) + (memory[pos + 2] << 16) + (memory[pos + 1] << 8) + memory[pos] ;
+                npc = pc + 4 ;
                 break ;
             }
             case lbu: {
                 printf("lbu %x, %x(%x)\n", op.rd, op.imm, op.rs) ;
                 unsigned int pos = reg[op.rs] + op.imm ;
                 result = memory[pos] ;
+                npc = pc + 4 ;
                 break ;
             }
             case lhu: {
                 printf("lhu %x, %x(%x)\n", op.rd, op.imm, op.rs) ;
-                pos = reg[op.rs] + op.imm ;
+                unsigned int pos = reg[op.rs] + op.imm ;
                 result = (memory[pos + 1] << 8) + memory[pos] ;
+                npc = pc + 4 ;
                 break ;
             }
             case sb: {
                 printf("sb %x, %x(%x)\n", op.rt, op.imm, op.rs) ;
                 store_pos = reg[op.rs] + op.imm ;
                 result = reg[op.rt] & ((1 << 8) - 1) ;
+                npc = pc + 4 ;
                 break ;
             }
             case sh: {
                 printf("sh %x, %x(%x)\n", op.rt, op.imm, op.rs) ;
                 store_pos = reg[op.rs] + op.imm ;
                 result = reg[op.rt] & ((1 << 16) - 1) ;
+                npc = pc + 4 ;
                 break ;
             }
             case sw: {
                 printf("sw %x, %x(%x)\n", op.rt, op.imm, op.rs) ;
                 store_pos = reg[op.rs] + op.imm ;
                 result = reg[op.rt] ;
+                npc = pc + 4 ;
                 break ;
             }
             case addi: {
                 printf("addi %x, %x, %x\n", op.rd, op.rs, op.imm) ;
                 result = reg[op.rs] + op.imm ;
+                npc = pc + 4 ;
                 break ;
             }
             case slti: {
                 printf("slti %x, %x, %x\n", op.rd, op.rs, op.imm) ;
                 if ((int)reg[op.rs] < op.imm) result = 1 ;
                 else result = 0 ;
+                npc = pc + 4 ;
                 break ;
             }
             case sltiu: {
                 printf("sltiu %x, %x, %x\n", op.rd, op.rs, op.imm) ;
                 if (reg[op.rs] < op.imm) result = 1 ;
                 else result = 0 ;
+                npc = pc + 4 ;
                 break ;
             }
             case xori: {
                 printf("xori %x, %x, %x\n", op.rd, op.rs, op.imm) ;
                 result = (int)reg[op.rs] ^ op.imm ;
+                npc = pc + 4 ;
                 break ;
             }
             case ori: {
                 printf("ori %x, %x, %x\n", op.rd, op.rs, op.imm) ;
                 result = (int)reg[op.rs] | op.imm ;
+                npc = pc + 4 ;
                 break ;
             }
             case andi: {
                 printf("andi %x, %x, %x\n", op.rd, op.rs, op.imm) ;
                 result = (int)reg[op.rs] & op.imm ;
+                npc = pc + 4 ;
                 break ;
             }
             case slli: {
                 printf("slli %x, %x, %x\n", op.rd, op.rs, op.shamt) ;
                 if ((op.shamt) >> 5 != 0) break ;
                 result = (int)reg[op.rs] << op.shamt ;
+                npc = pc + 4 ;
                 break ;
             }
             case srli: {
                 printf("srli %x, %x, %x\n", op.rd, op.rs, op.shamt) ;
                 result = reg[op.rs] >> op.shamt ;
+                npc = pc + 4 ;
                 break ;
             }
             case srai: {
                 printf("srai %x, %x, %x\n", op.rd, op.rs, op.shamt) ;
                 result = (int)reg[op.rs] >> op.shamt ;
+                npc = pc + 4 ;
                 break ;
             }
             case add: {
                 printf("add %x, %x, %x\n", op.rd, op.rs, op.rt) ;
                 result = (int)reg[op.rs] + (int)reg[op.rt] ;
+                npc = pc + 4 ;
                 break ;
             }
             case sub: {
                 printf("sub %x, %x, %x\n", op.rd, op.rs, op.rt) ;
                 result = (int)reg[op.rs] - (int)reg[op.rt] ;
+                npc = pc + 4 ;
                 break ;
             }
             case sll: {
                 printf("sll %x, %x, %x\n", op.rd, op.rs, op.rt) ;
                 result = (int)reg[op.rs] - (int)reg[op.rt] ;
+                npc = pc + 4 ;
                 break ;
             }
             case slt: {
                 printf("slt %x, %x, %x\n", op.rd, op.rs, op.rt) ;
                 if ((int)reg[op.rs] < (int)reg[op.rt]) result = 1 ;
                 else result = 0 ;
+                npc = pc + 4 ;
                 break ;
             }
             case sltu: {
                 printf("sltu %x, %x, %x\n", op.rd, op.rs, op.rt) ;
                 if (reg[op.rs] < reg[op.rt]) result = 1 ;
                 else result = 0 ;
+                npc = pc + 4 ;
                 break ;
             }
             case _xor: {
                 printf("xor %x, %x, %x\n", op.rd, op.rs, op.rt) ;
                 result = reg[op.rs] ^ reg[op.rt] ;
+                npc = pc + 4 ;
                 break ;
             }
             case srl: {
                 printf("srl %x, %x, %x\n", op.rd, op.rs, op.rt) ;
                 result = reg[op.rs] >> (reg[op.rt] & ((1 << 5) - 1)) ;
+                npc = pc + 4 ;
                 break ;
             }
             case sra: {
                 printf("sra %x, %x, %x\n", op.rd, op.rs, op.rt) ;
                 result = (int)reg[op.rs] >> (reg[op.rt] & ((1 << 5) - 1)) ;
+                npc = pc + 4 ;
                 break ;
             }
             case _or: {
                 printf("or %x, %x, %x\n", op.rd, op.rs, op.rt) ;
                 result = reg[op.rs] | reg[op.rt] ;
+                npc = pc + 4 ;
                 break ;
             }
             case _and: {
                 printf("and %x, %x, %x\n", op.rd, op.rs, op.rt) ;
                 result = reg[op.rs] & reg[op.rt] ;
+                npc = pc + 4 ;
                 break ;
             }
             default:
@@ -247,11 +275,19 @@ public:
 
     void write_result () {
         if (op.TYPE != 'B' && op.TYPE != 'S') {
-            memory[op.rd] = result & ((1 << 8) - 1) ;
-            memory[op.rd + 1] = (result >> 8) & ((1 << 8) - 1) ;
-            memory[op.rd + 2] = (result >> 16) & ((1 << 8) - 1) ;
-            memory[op.rd + 3] = (result >> 24) ;
+            reg[op.rd] = result ;
+        } else if (op.TYPE == 'S') {
+            memory[store_pos] = result & ((1 << 8) - 1) ;
+            memory[store_pos + 1] = (result >> 8) & ((1 << 8) - 1) ;
+            memory[store_pos + 2] = (result >> 16) & ((1 << 8) - 1) ;
+            memory[store_pos + 3] = (result >> 24) ;
         }
+    }
+
+    void run () {
+        issue () ;
+        execute () ;
+        write_result () ;
     }
 } ;
 

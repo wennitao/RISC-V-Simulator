@@ -6,9 +6,9 @@
 
 using namespace std ;
 
-unsigned int pc ;
+unsigned int pc, npc ;
 unsigned int reg[32] ;
-unsigned char memory[100000] ;
+unsigned char memory[1000000] ;
 
 void input () {
     unsigned int pos ;
@@ -30,11 +30,17 @@ void input () {
 void run () {
     pc = 0 ;
     while (1) {
-        unsigned op = (memory[pc + 3] << 24) + (memory[pc + 2] << 16) + (memory[pc + 1] << 8) + memory[pc] ;
+        printf("pc:%x\n", pc) ;
+        unsigned int op = ((unsigned int)memory[pc + 3] << 24) + ((unsigned int)memory[pc + 2] << 16) + ((unsigned int)memory[pc + 1] << 8) + memory[pc] ;
+        printf("%x\n", op) ;
         if (op == 0) break ;
         decode _decode = decode (op) ;
         operation_parameter parameter = _decode.decode_op () ;
+        if (parameter.type == ret) {
+            printf("%d\n", reg[10]); break ;
+        }
         runcode _runcode = runcode (parameter) ;
+        _runcode.run() ;
     }
 }
 int main() {

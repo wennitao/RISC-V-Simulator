@@ -11,7 +11,8 @@ enum optype {
     lb, lh, lw, lbu, lhu, 
     sb, sh, sw, 
     addi, slti, sltiu, xori, ori, andi, slli, srli, srai, 
-    add, sub, sll, slt, sltu, _xor, srl, sra, _or, _and
+    add, sub, sll, slt, sltu, _xor, srl, sra, _or, _and, 
+    ret
 } ;
 
 struct operation_parameter {
@@ -37,8 +38,13 @@ public:
     }
 
     operation_parameter decode_op () {
-        unsigned int opcode = op & 127 ;
         operation_parameter result ;
+        if (op == 0x0ff00513) {
+            result.type = ret ;
+            return result ;
+        }
+
+        unsigned int opcode = op & 127 ;
         if (opcode == 55) {
             result.TYPE = 'U' ;
             result.type = lui ;

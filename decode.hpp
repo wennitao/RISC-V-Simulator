@@ -30,8 +30,8 @@ public:
     decode (unsigned int _op) : op (_op) {}
 
     unsigned int sext (unsigned int x, int bit) {
-        if ((x >> (bit - 1)) & 1) {
-            unsigned int tmp = ~((1 << bit) - 1) ;
+        if ((x >> bit) & 1) {
+            unsigned int tmp = ~((1u << (bit + 1)) - 1) ;
             x = x | tmp ;
         }
         return x ;
@@ -80,7 +80,7 @@ public:
             result.imm |= (op >> 31) << 12 ;
             result.imm = sext (result.imm, 12) ;
 
-            unsigned int funct3 = op & (7 << 12) ;
+            unsigned int funct3 = (op >> 12) & 7 ;
             if (funct3 == 0) {
                 result.type = beq ;
             } else if (funct3 == 1) {
@@ -100,7 +100,7 @@ public:
             result.rs = (op >> 15) & ((1 << 5) - 1) ;
             result.imm = sext (op >> 20, 11) ;
 
-            unsigned int funct3 = (op & (7 << 12)) >> 12 ;
+            unsigned int funct3 = (op >> 12) & 7 ;
             if (funct3 == 0) {
                 result.type = lb ;
             } else if (funct3 == 1) {
@@ -117,10 +117,10 @@ public:
             result.rs = (op >> 15) & ((1 << 5) - 1) ;
             result.rt = (op >> 20) & ((1 << 5) - 1) ;
             result.imm = (op >> 7) & ((1 << 5) - 1) ;
-            result.imm |= ((op >> 25) & ((1 << 7) - 1)) << 5 ;
+            result.imm |= (op >> 25) << 5 ;
             result.imm = sext (result.imm, 11) ;
 
-            unsigned int funct3 = (op & (7 << 12)) >> 12 ;
+            unsigned int funct3 = (op >> 12) & 7 ;
             if (funct3 == 0) {
                 result.type = sb ;
             } else if (funct3 == 1) {
@@ -134,8 +134,8 @@ public:
             result.rs = (op >> 15) & ((1 << 5) - 1) ;
             result.imm = sext (op >> 20, 11) ;
 
-            unsigned int funct3 = (op & (7 << 12)) >> 12 ;
-            unsigned int funct7 = (op & (255u << 25)) >> 25 ;
+            unsigned int funct3 = (op >> 12) & 7 ;
+            unsigned int funct7 = op >> 25 ;
             if (funct3 == 0) {
                 result.type = addi ;
             } else if (funct3 == 1) {
@@ -172,8 +172,8 @@ public:
             result.rs = (op >> 15) & ((1 << 5) - 1) ;
             result.rt = (op >> 20) & ((1 << 5) - 1) ;
 
-            unsigned int funct3 = (op & (7 << 12)) >> 12 ;
-            unsigned int funct7 = (op & (255u << 25)) >> 25 ;
+            unsigned int funct3 = (op >> 12) & 7 ;
+            unsigned int funct7 = op >> 25 ;
             if (funct3 == 0) {
                 if (funct7 == 0) {
                     result.type = add ;

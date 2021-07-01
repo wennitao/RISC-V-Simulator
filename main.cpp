@@ -30,17 +30,18 @@ void input () {
 void run () {
     pc = 0 ;
     while (1) {
-        printf("pc:%x\n", pc) ;
+        // printf("pc:%x\n", pc) ;
         unsigned int op = ((unsigned int)memory[pc + 3] << 24) + ((unsigned int)memory[pc + 2] << 16) + ((unsigned int)memory[pc + 1] << 8) + memory[pc] ;
-        printf("%x\n", op) ;
         if (op == 0) break ;
         decode _decode = decode (op) ;
         operation_parameter parameter = _decode.decode_op () ;
         if (parameter.type == ret) {
-            printf("%d\n", reg[10]); break ;
+            printf("%u\n", reg[10] & 255u); break ;
         }
         runcode _runcode = runcode (parameter) ;
         _runcode.run() ;
+        // for (int i = 0; i < 20; i ++) printf("%u ", reg[i]) ;
+        // printf("\n") ;
     }
 }
 int main() {

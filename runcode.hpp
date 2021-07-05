@@ -5,17 +5,24 @@
 
 #include "main.h"
 #include "decode.hpp"
+#include "InstructionQueue.hpp"
+#include "ReorderBuffer.hpp"
+#include "RegisterStatus.hpp"
+#include "ReservationStation.hpp"
+#include "LoadStoreBuffer.hpp"
 
-using namespace std;
+std::vector<operation_parameter> ROB_insert ;
+std::vector<pair<int, int> > ROB_update ;
+std::vector<pair<RS_op, RS> > RS_insert ;
+std::vector<pair<bool, LSBuffer> > LSB_insert ;
 
 class runcode {
 private:
-    operation_parameter op ;
     unsigned int result, store_pos ;
+    unsigned int pc = 0 ;
 
 public:
     runcode () {}
-    runcode (operation_parameter _op) : op (_op) {}
 
     unsigned int sext (unsigned int x, int bit) {
         if ((x >> bit) & 1) {
@@ -25,270 +32,233 @@ public:
         return x ;
     }
 
-    void issue () {
+    void run_inst_fetch_queue() {
+        if (instructionQueue_next.full()) return ;
+        unsigned int op = ((unsigned int)memory[pc + 3] << 24) + ((unsigned int)memory[pc + 2] << 16) + ((unsigned int)memory[pc + 1] << 8) + memory[pc] ;
+        operation_parameter parameter = decode_op (op) ;
+        parameter.pc = pc ;
+        instructionQueue_next.push (parameter) ;
+        pc += 4 ;
+    }
+
+    void run_rob() {
 
     }
 
-    void execute () {
+    void run_reservation() {
+
+    }
+
+    void update () {
+        ROB_insert.clear() ;
+        ROB_update.clear() ;
+        RS_insert.clear() ;
+    }
+
+    void run_issue () {
+        if (reorderBuffer_next.full()) return ;
+        operation_parameter op = instructionQueue_next.front(); instructionQueue_next.pop() ;
+        ROB_insert.push_back (op) ;
+        int cur_ROB_pos = reorderBuffer_pre.nextPos() ;
+        if (op.rd != 0) registerStatus_pre[op.rd].q = cur_ROB_pos ;
         switch (op.type) {
             case lui: {
-                // printf("lui %x %x\n", op.rd, op.imm) ;
-                result = op.imm ;
-                npc = pc + 4 ;
+                ROB_update.push_back (make_pair (cur_ROB_pos, op.imm)) ;
                 break ;
             }
             case auipc: {
-                // printf("auipc %x %x\n", op.rd, op.imm) ;
-                result = pc + op.imm ;
-                npc = pc + 4 ;
+                RS cur; cur.vj = op.pc; cur.vk = op.imm; cur.dest = cur_ROB_pos ;
+                RS_insert.push_back (make_pair (rs_add, cur)) ;
                 break ;
             }
             case jal: {
-                // printf("jal %x %x\n", op.rd, op.imm) ;
-                result = pc + 4 ;
-                npc += op.imm ;
+                RS cur; cur.vj = op.pc; cur.vk = 4; cur.dest = cur_ROB_pos ;
+                RS_insert.push_back (make_pair (rs_add, cur)) ;
                 break ;
             }
             case jalr: {
-                // printf("jalr %x %x %x\n", op.rd, reg[op.rs], op.imm) ;
-                result = pc + 4 ;
-                npc = (reg[op.rs] + op.imm) & ~1 ;
-                break ;
+                
             }
             case beq: {
-                // printf("beq %x %x %x\n", reg[op.rs], reg[op.rt], op.imm) ;
-                if (reg[op.rs] == reg[op.rt]) npc = pc + op.imm ;
-                else npc = pc + 4 ;
-                break ;
+                RS cur ;
+                if (registerStatus_pre[op.rs].busy) {
+                    int h = registerStatus_pre[op.rs].q ;
+                    if (reorderBuffer_pre.que[h].ready) {
+                        cur.vj = reorderBuffer_pre.que[h].value ;
+                        cur.qj = 0 ;
+                    } else {
+                        cur.qj = h ;
+                    }
+                } else {
+                    cur.vj = reg[op.rs]; cur.qj = 0 ;
+                }
+                if (registerStatus_pre[op.rt].busy) {
+                    int h = registerStatus_pre[op.rt].q ;
+                    if (reorderBuffer_pre.que[h].ready) {
+                        cur.vk = reorderBuffer_pre.que[h].value ;
+                        cur.qk = 0 ;
+                    } else {
+                        cur.qk = h ;
+                    }
+                } else {
+                    cur.vk = reg[op.rt]; cur.qk = 0 ;
+                }
+                cur.busy = true; cur.dest = cur_ROB_pos ;
+                RS_insert.push_back (make_pair (rs_equal, cur)) ;
             }
             case bne: {
-                // printf("bne %x %x %x\n", reg[op.rs], reg[op.rt], op.imm) ;
-                if (reg[op.rs] != reg[op.rt]) npc = pc + op.imm ;
-                else npc = pc + 4 ;
-                break ;
+                RS cur ;
+                if (registerStatus_pre[op.rs].busy) {
+                    int h = registerStatus_pre[op.rs].q ;
+                    if (reorderBuffer_pre.que[h].ready) {
+                        cur.vj = reorderBuffer_pre.que[h].value ;
+                        cur.qj = 0 ;
+                    } else {
+                        cur.qj = h ;
+                    }
+                } else {
+                    cur.vj = reg[op.rs]; cur.qj = 0 ;
+                }
+                if (registerStatus_pre[op.rt].busy) {
+                    int h = registerStatus_pre[op.rt].q ;
+                    if (reorderBuffer_pre.que[h].ready) {
+                        cur.vk = reorderBuffer_pre.que[h].value ;
+                        cur.qk = 0 ;
+                    } else {
+                        cur.qk = h ;
+                    }
+                } else {
+                    cur.vk = reg[op.rt]; cur.qk = 0 ;
+                }
+                cur.busy = true; cur.dest = cur_ROB_pos ;
+                RS_insert.push_back (make_pair (rs_equal, cur)) ;
             }
             case blt: {
-                // printf("blt %x %x %x\n", reg[op.rs], reg[op.rt], op.imm) ;
-                if ((int)reg[op.rs] < (int)reg[op.rt]) npc = pc + op.imm ;
-                else npc = pc + 4 ;
-                break ;
+                RS cur ;
+                if (registerStatus_pre[op.rs].busy) {
+                    int h = registerStatus_pre[op.rs].q ;
+                    if (reorderBuffer_pre.que[h].ready) {
+                        cur.vj = reorderBuffer_pre.que[h].value ;
+                        cur.qj = 0 ;
+                    } else {
+                        cur.qj = h ;
+                    }
+                } else {
+                    cur.vj = reg[op.rs]; cur.qj = 0 ;
+                }
+                if (registerStatus_pre[op.rt].busy) {
+                    int h = registerStatus_pre[op.rt].q ;
+                    if (reorderBuffer_pre.que[h].ready) {
+                        cur.vk = reorderBuffer_pre.que[h].value ;
+                        cur.qk = 0 ;
+                    } else {
+                        cur.qk = h ;
+                    }
+                } else {
+                    cur.vk = reg[op.rt]; cur.qk = 0 ;
+                }
+                cur.busy = true; cur.dest = cur_ROB_pos ;
+                RS_insert.push_back (make_pair (rs_less, cur)) ;
             }
             case bge: {
-                // printf("bge %x %x %x\n", reg[op.rs], reg[op.rt], op.imm) ;
-                if ((int)reg[op.rs] >= (int)reg[op.rt]) npc = pc + op.imm ;
-                else npc = pc + 4 ;
-                break ;
+                RS cur ;
+                if (registerStatus_pre[op.rs].busy) {
+                    int h = registerStatus_pre[op.rs].q ;
+                    if (reorderBuffer_pre.que[h].ready) {
+                        cur.vj = reorderBuffer_pre.que[h].value ;
+                        cur.qj = 0 ;
+                    } else {
+                        cur.qj = h ;
+                    }
+                } else {
+                    cur.vj = reg[op.rs]; cur.qj = 0 ;
+                }
+                if (registerStatus_pre[op.rt].busy) {
+                    int h = registerStatus_pre[op.rt].q ;
+                    if (reorderBuffer_pre.que[h].ready) {
+                        cur.vk = reorderBuffer_pre.que[h].value ;
+                        cur.qk = 0 ;
+                    } else {
+                        cur.qk = h ;
+                    }
+                } else {
+                    cur.vk = reg[op.rt]; cur.qk = 0 ;
+                }
+                cur.busy = true; cur.dest = cur_ROB_pos ;
+                RS_insert.push_back (make_pair (rs_less, cur)) ;
             }
             case bltu: {
-                // printf("bltu %x %x %x\n", reg[op.rs], reg[op.rt], op.imm) ;
-                if (reg[op.rs] < reg[op.rt]) npc = pc + op.imm ;
-                else npc = pc + 4 ;
-                break ;
+                RS cur ;
+                if (registerStatus_pre[op.rs].busy) {
+                    int h = registerStatus_pre[op.rs].q ;
+                    if (reorderBuffer_pre.que[h].ready) {
+                        cur.vj = reorderBuffer_pre.que[h].value ;
+                        cur.qj = 0 ;
+                    } else {
+                        cur.qj = h ;
+                    }
+                } else {
+                    cur.vj = reg[op.rs]; cur.qj = 0 ;
+                }
+                if (registerStatus_pre[op.rt].busy) {
+                    int h = registerStatus_pre[op.rt].q ;
+                    if (reorderBuffer_pre.que[h].ready) {
+                        cur.vk = reorderBuffer_pre.que[h].value ;
+                        cur.qk = 0 ;
+                    } else {
+                        cur.qk = h ;
+                    }
+                } else {
+                    cur.vk = reg[op.rt]; cur.qk = 0 ;
+                }
+                cur.busy = true; cur.dest = cur_ROB_pos ;
+                RS_insert.push_back (make_pair (rs_lessu, cur)) ;
             }
             case bgeu: {
-                // printf("bgeu %x %x %x\n", reg[op.rs], reg[op.rt], op.imm) ;
-                if (reg[op.rs] >= reg[op.rt]) npc = pc + op.imm ;
-                else npc = pc + 4 ;
-                break ;
+                RS cur ;
+                if (registerStatus_pre[op.rs].busy) {
+                    int h = registerStatus_pre[op.rs].q ;
+                    if (reorderBuffer_pre.que[h].ready) {
+                        cur.vj = reorderBuffer_pre.que[h].value ;
+                        cur.qj = 0 ;
+                    } else {
+                        cur.qj = h ;
+                    }
+                } else {
+                    cur.vj = reg[op.rs]; cur.qj = 0 ;
+                }
+                if (registerStatus_pre[op.rt].busy) {
+                    int h = registerStatus_pre[op.rt].q ;
+                    if (reorderBuffer_pre.que[h].ready) {
+                        cur.vk = reorderBuffer_pre.que[h].value ;
+                        cur.qk = 0 ;
+                    } else {
+                        cur.qk = h ;
+                    }
+                } else {
+                    cur.vk = reg[op.rt]; cur.qk = 0 ;
+                }
+                cur.busy = true; cur.dest = cur_ROB_pos ;
+                RS_insert.push_back (make_pair (rs_lessu, cur)) ;
             }
             case lb: {
-                // printf("lb ~ lhu %x %x %x\n", op.rd, reg[op.rs], op.imm) ;
-                unsigned int pos = reg[op.rs] + op.imm ;
-                result = sext (memory[pos], 7) ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case lh: {
-                // printf("lb ~ lhu %x %x %x\n", op.rd, reg[op.rs], op.imm) ;
-                unsigned int pos = reg[op.rs] + op.imm ;
-                result = ((unsigned int)memory[pos + 1] << 8) + memory[pos] ;
-                result = sext (result, 15) ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case lw: {
-                // printf("lb ~ lhu %x %x %x\n", op.rd, reg[op.rs], op.imm) ;
-                unsigned int pos = reg[op.rs] + op.imm ;
-                result = ((unsigned int)memory[pos + 3] << 24) + ((unsigned int)memory[pos + 2] << 16) + ((unsigned int)memory[pos + 1] << 8) + memory[pos] ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case lbu: {
-                // printf("lb ~ lhu %x %x %x\n", op.rd, reg[op.rs], op.imm) ;
-                unsigned int pos = reg[op.rs] + op.imm ;
-                result = memory[pos] ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case lhu: {
-                // printf("lb ~ lhu %x %x %x\n", op.rd, reg[op.rs], op.imm) ;
-                unsigned int pos = reg[op.rs] + op.imm ;
-                result = ((unsigned int)memory[pos + 1] << 8) + memory[pos] ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case sb: {
-                // printf("sb ~ sw %x %x %x\n", reg[op.rs], reg[op.rt], op.imm) ;
-                store_pos = reg[op.rs] + op.imm ;
-                result = reg[op.rt] & ((1 << 8) - 1) ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case sh: {
-                // printf("sb ~ sw %x %x %x\n", reg[op.rs], reg[op.rt], op.imm) ;
-                store_pos = reg[op.rs] + op.imm ;
-                result = reg[op.rt] & ((1 << 16) - 1) ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case sw: {
-                // printf("sb ~ sw %x %x %x\n", reg[op.rs], reg[op.rt], op.imm) ;
-                store_pos = reg[op.rs] + op.imm ;
-                result = reg[op.rt] ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case addi: {
-                // printf("addi %x %x %x\n", op.rd, reg[op.rs], op.imm) ;
-                result = reg[op.rs] + op.imm ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case slti: {
-                // printf("slti %x %x %x\n", op.rd, reg[op.rs], op.imm) ;
-                if ((int)reg[op.rs] < (int)op.imm) result = 1 ;
-                else result = 0 ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case sltiu: {
-                // printf("sltiu %x %x %x\n", op.rd, reg[op.rs], op.imm) ;
-                if (reg[op.rs] < op.imm) result = 1 ;
-                else result = 0 ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case xori: {
-                // printf("xori %x %x %x\n", op.rd, reg[op.rs], op.imm) ;
-                result = reg[op.rs] ^ op.imm ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case ori: {
-                // printf("ori %x %x %x\n", op.rd, reg[op.rs], op.imm) ;
-                result = reg[op.rs] | op.imm ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case andi: {
-                // printf("andi %x %x %x\n", op.rd, reg[op.rs], op.imm) ;
-                result = reg[op.rs] & op.imm ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case slli: {
-                // printf("slli %x %x %x\n", op.rd, reg[op.rs], op.shamt) ;
-                if ((op.shamt) >> 5 != 0) break ;
-                result = reg[op.rs] << op.shamt ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case srli: {
-                // printf("srli %x %x %x\n", op.rd, reg[op.rs], op.shamt) ;
-                result = reg[op.rs] >> op.shamt ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case srai: {
-                // printf("srai %x %x %x\n", op.rd, reg[op.rs], op.shamt) ;
-                result = sext (reg[op.rs] >> op.shamt, 31 - op.shamt) ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case add: {
-                // printf("add %x %x %x\n", op.rd, reg[op.rs], reg[op.rt]) ;
-                result = reg[op.rs] + reg[op.rt] ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case sub: {
-                // printf("sub %x %x %x\n", op.rd, reg[op.rs], reg[op.rt]) ;
-                result = reg[op.rs] - reg[op.rt] ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case sll: {
-                // printf("sll %x %x %x\n", op.rd, reg[op.rs], reg[op.rt]) ;
-                result = reg[op.rs] << (reg[op.rt] & ((1 << 5) - 1)) ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case slt: {
-                // printf("slt %x %x %x\n", op.rd, reg[op.rs], reg[op.rt]) ;
-                if ((int)reg[op.rs] < (int)reg[op.rt]) result = 1 ;
-                else result = 0 ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case sltu: {
-                // printf("sltu %x %x %x\n", op.rd, reg[op.rs], reg[op.rt]) ;
-                if (reg[op.rs] < reg[op.rt]) result = 1 ;
-                else result = 0 ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case _xor: {
-                // printf("xor %x %x %x\n", op.rd, reg[op.rs], reg[op.rt]) ;
-                result = reg[op.rs] ^ reg[op.rt] ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case srl: {
-                // printf("srl %x %x %x\n", op.rd, reg[op.rs], reg[op.rt]) ;
-                result = reg[op.rs] >> (reg[op.rt] & ((1 << 5) - 1)) ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case sra: {
-                // printf("sra %x %x %x\n", op.rd, reg[op.rs], reg[op.rt]) ;
-                result = sext (reg[op.rs] >> (reg[op.rt] & ((1 << 5) - 1)), 31 - (reg[op.rt] & ((1 << 5) - 1))) ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case _or: {
-                // printf("or %x %x %x\n", op.rd, reg[op.rs], reg[op.rt]) ;
-                result = reg[op.rs] | reg[op.rt] ;
-                npc = pc + 4 ;
-                break ;
-            }
-            case _and: {
-                // printf("and %x %x %x\n", op.rd, reg[op.rs], reg[op.rt]) ;
-                result = reg[op.rs] & reg[op.rt] ;
-                npc = pc + 4 ;
-                break ;
+                
             }
             default:
-                break ;
+                break;
         }
-        pc = npc ;
     }
 
-    void write_result () {
-        if (op.TYPE != 'B' && op.TYPE != 'S') {
-            reg[op.rd] = result ;
-        } else if (op.TYPE == 'S') {
-            memory[store_pos] = result & ((1 << 8) - 1) ;
-            memory[store_pos + 1] = (result >> 8) & ((1 << 8) - 1) ;
-            memory[store_pos + 2] = (result >> 16) & ((1 << 8) - 1) ;
-            memory[store_pos + 3] = (result >> 24) ;
-        }
-        reg[0] = 0 ;
+    void execute () {
+        
+    }
+
+    void commit () {
+
     }
 
     void run () {
-        issue () ;
-        execute () ;
-        write_result () ;
+
     }
 } ;
 

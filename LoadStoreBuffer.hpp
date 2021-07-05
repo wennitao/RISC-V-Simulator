@@ -2,7 +2,7 @@
 #define RISCV_LoadStoreBuffer
 
 struct LSBuffer {
-    unsigned int vj, qj, A ;
+    unsigned int vj, qj = -1, vk, qk = -1, A ;
 } ;
 
 class LoadStoreBuffer {

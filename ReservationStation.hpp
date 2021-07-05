@@ -4,19 +4,21 @@
 #include <bits/stdc++.h>
 
 enum RS_op {
-    rs_add, rs_equal, rs_less, rs_lessu
+    rs_add, rs_sub, rs_equal, rs_less, rs_lessu, rs_xor, rs_or, rs_and, rs_sll, rs_srl
 } ;
+
+RS_op RS_ops[10] = {rs_add, rs_sub, rs_equal, rs_less, rs_lessu, rs_xor, rs_or, rs_and, rs_sll, rs_srl} ;
 
 struct RS {
     bool busy ;
-    unsigned int vj, qj, vk, qk, dest ;
+    unsigned int vj, qj = -1, vk, qk = -1, dest ;
 } ;
 
 const int max_size = 10 ;
 
 class ReservationStation {
 public:
-    RS que[5][10] ;
+    RS que[10][10] ;
     int head[5], tail[5] ;
 
 public:
@@ -29,6 +31,19 @@ public:
         int id = op.first ;
         que[id][tail[id]] = op.second ;
         tail[id] = (tail[id] + 1) % max_size ;
+    }
+
+    bool empty (int op) const {
+        return (head[op] + 1) % max_size == tail[op] ;
+    }
+
+    RS front (int op) const {
+        RS res = que[op][head[op]] ;
+        return res ;
+    }
+
+    void pop (int op) {
+        head[op] = (head[op] + 1) % max_size ;
     }
 } ;
 

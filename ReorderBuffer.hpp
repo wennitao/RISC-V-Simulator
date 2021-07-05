@@ -47,6 +47,7 @@ public:
     
     void update (int pos, unsigned int val) {
         que[pos].value = val ;
+        que[pos].ready = true ;
     }
 } ;
 

@@ -14,8 +14,6 @@ struct RS {
     unsigned int vj, qj = -1, vk, qk = -1, dest ;
 } ;
 
-const int max_size = 10 ;
-
 class ReservationStation {
 public:
     RS que[10][10] ;
@@ -34,7 +32,7 @@ public:
     }
 
     bool empty (int op) const {
-        return (head[op] + 1) % max_size == tail[op] ;
+        return head[op] == tail[op] ;
     }
 
     RS front (int op) const {

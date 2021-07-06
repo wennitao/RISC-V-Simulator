@@ -9,8 +9,6 @@ struct ROB {
     unsigned int dest, value ;
 } ;
 
-const int max_size = 10 ;
-
 class ReorderBuffer {
 public:
     ROB que[max_size] ;
@@ -23,6 +21,10 @@ public:
     
     bool full () const {
         return (tail + 1) % max_size == head ;
+    }
+
+    bool empty() const {
+        return head == tail ;
     }
 
     int nextPos () const {

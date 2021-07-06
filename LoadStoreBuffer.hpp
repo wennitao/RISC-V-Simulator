@@ -6,8 +6,6 @@ struct LSBuffer {
     unsigned int vj, qj = -1, vk, qk = -1, A, dest ;
 } ;
 
-const int max_size = 10 ;
-
 class LoadStoreBuffer {
 public:
     LSBuffer que[max_size] ;
@@ -18,8 +16,12 @@ public:
         head = tail = 0 ;
     }
 
-    bool full () {
+    bool full () const {
         return (tail + 1) % max_size == head ;
+    }
+
+    bool empty() const {
+        return head == tail ;
     }
 
     void push (LSBuffer cur) {

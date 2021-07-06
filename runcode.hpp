@@ -54,6 +54,7 @@ public:
             pair<int, unsigned int> cur = ROB_update[i] ;
             reorderBuffer_next.update (cur.first, cur.second) ;
         }
+        if (reorderBuffer_next.empty()) return ;
         pair<int, ROB> cur = reorderBuffer_next.front() ;
         if (cur.second.ready == true) {
             ROB_commit.push_back (cur) ;
@@ -97,19 +98,21 @@ public:
         for (int i = 0; i < LSB_insert.size(); i ++) {
             loadStoreBuffer_next.push (LSB_insert[i]) ;
         }
-        LSBuffer cur = loadStoreBuffer_next.front() ;
-        if (cur.qj == -1 && cur.qk == -1) {
-            loadStoreBuffer_next.pop() ;
-            if (cur.store == 0) {
-                unsigned int address = cur.vj + cur.A ;
-                unsigned int result = memory[address] ;
-                ROB_update.push_back (make_pair (cur.dest, result)) ;
-                RS_update.push_back (make_pair (cur.dest, result)) ;
-                LSB_update.push_back (make_pair (cur.dest, result)) ;
-            } else {
-                unsigned int address = cur.vj + cur.A ;
-                unsigned int result = cur.vk ;
-                memory[address] = result ;
+        if (!loadStoreBuffer_next.empty()) {
+            LSBuffer cur = loadStoreBuffer_next.front() ;
+            if (cur.qj == -1 && cur.qk == -1) {
+                loadStoreBuffer_next.pop() ;
+                if (cur.store == 0) {
+                    unsigned int address = cur.vj + cur.A ;
+                    unsigned int result = memory[address] ;
+                    ROB_update.push_back (make_pair (cur.dest, result)) ;
+                    RS_update.push_back (make_pair (cur.dest, result)) ;
+                    LSB_update.push_back (make_pair (cur.dest, result)) ;
+                } else {
+                    unsigned int address = cur.vj + cur.A ;
+                    unsigned int result = cur.vk ;
+                    memory[address] = result ;
+                }
             }
         }
         for (int i = 0; i < LSB_update.size(); i ++) {
@@ -122,9 +125,20 @@ public:
         ROB_insert.clear() ;
         ROB_update.clear() ;
         RS_insert.clear() ;
+        RS_update.clear() ;
         LSB_insert.clear() ;
+        LSB_update.clear() ;
         RStatus_insert.clear() ;
+        RStatus_update.clear() ;
         Execute_ops.clear() ;
+        ROB_commit.clear() ;
+
+        for (int i = 0; i < 32; i ++)
+            registerStatus_pre[i] = registerStatus_next[i] ;
+        instructionQueue_pre = instructionQueue_next ;
+        reorderBuffer_pre = reorderBuffer_next ;
+        reservationStation_pre = reservationStation_next ;
+        loadStoreBuffer_pre = loadStoreBuffer_next ;
     }
 
     void run_issue () {
@@ -980,6 +994,8 @@ public:
             int d = cur.second.dest ;
             if (cur.second.instruction == 'B') {
                 
+            } else if (cur.second.instruction == 'E') {
+                throw "return" ;
             } else {
                 reg[d] = cur.second.value ;
             }
@@ -987,16 +1003,20 @@ public:
     }
 
     void run () {
-        run_rob() ;
-        run_lsbuffer() ;
-        run_reservation() ;
-        run_RegisterStatus() ;
-        run_inst_fetch_queue() ;
-        update () ;
-
-        execute() ;
-        run_issue() ;
-        commit() ;
+        unsigned int clock = 0 ;
+        while (1) {
+            printf("clock %d\n", clock ++) ;
+            run_rob() ;
+            run_lsbuffer() ;
+            run_reservation() ;
+            run_RegisterStatus() ;
+            run_inst_fetch_queue() ;
+            update () ;
+            
+            execute() ;
+            run_issue() ;
+            commit() ;
+        }
     }
 } ;
 

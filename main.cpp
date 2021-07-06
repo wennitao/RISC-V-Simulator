@@ -13,6 +13,7 @@ unsigned char memory[1000000] ;
 RegisterStatus registerStatus_pre[32], registerStatus_next[32] ;
 InstructionQueue instructionQueue_pre, instructionQueue_next ;
 ReorderBuffer reorderBuffer_pre, reorderBuffer_next ;
+ReservationStation reservationStation_pre, reservationStation_next ;
 LoadStoreBuffer loadStoreBuffer_pre, loadStoreBuffer_next ;
 
 void input () {
@@ -34,7 +35,11 @@ void input () {
 }
 void run () {
     runcode cpu ;
-    cpu.run() ;
+    try {
+        cpu.run() ;
+    } catch (...) {
+        printf("%u\n", reg[10] & 255u) ;
+    }
 }
 int main() {
     input () ;

@@ -45,6 +45,14 @@ public:
     void pop (int op) {
         head[op] = (head[op] + 1) % max_size ;
     }
+
+    void update (int rob_id, unsigned int result) {
+        for (int i = 0; i < 10; i ++)
+            for (int j = head[i]; j != tail[i]; j = (j + 1) % max_size) {
+                if (que[i][j].qj == rob_id) que[i][j].qj = -1, que[i][j].vj = result ;
+                if (que[i][j].qk == rob_id) que[i][j].qk = -1, que[i][j].vk = result ;
+            }
+    }
 } ;
 
 #endif

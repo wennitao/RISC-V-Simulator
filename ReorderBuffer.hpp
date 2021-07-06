@@ -4,7 +4,7 @@
 #include "decode.hpp"
 
 struct ROB {
-    optype instruction ;
+    char instruction ;
     bool ready ;
     unsigned int dest, value ;
 } ;
@@ -31,14 +31,14 @@ public:
 
     void push (operation_parameter op) {
         ROB cur ;
-        cur.instruction = op.type; cur.dest = op.rd; cur.ready = false ;
+        cur.instruction = op.TYPE; cur.dest = op.rd; cur.ready = false ;
         que[tail] = cur ;
         tail = (tail + 1) % max_size ;
     }
 
-    ROB front () const {
+    std::pair<int, ROB> front () const {
         ROB cur = que[head] ;
-        return cur ;
+        return make_pair (head, cur) ;
     }
 
     void pop () {

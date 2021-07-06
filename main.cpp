@@ -13,6 +13,7 @@ unsigned char memory[1000000] ;
 RegisterStatus registerStatus_pre[32], registerStatus_next[32] ;
 InstructionQueue instructionQueue_pre, instructionQueue_next ;
 ReorderBuffer reorderBuffer_pre, reorderBuffer_next ;
+LoadStoreBuffer loadStoreBuffer_pre, loadStoreBuffer_next ;
 
 void input () {
     unsigned int pos ;

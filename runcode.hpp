@@ -15,9 +15,12 @@ std::vector<operation_parameter> ROB_insert ;
 std::vector<pair<int, unsigned int> > ROB_update ;
 std::vector<pair<RS_op, RS> > RS_insert ;
 std::vector<pair<int, unsigned int> > RS_update ;
-std::vector<pair<bool, LSBuffer> > LSB_insert ;
+std::vector<LSBuffer> LSB_insert ;
+std::vector<pair<int, unsigned int> > LSB_update ;
 std::vector<pair<int, int> > RStatus_insert ;
+std::vector<pair<int, unsigned int> > RStatus_update ;
 std::vector<pair<RS_op, RS> > Execute_ops ;
+std::vector<pair<int, ROB> > ROB_commit ;
 
 class runcode {
 private:
@@ -45,27 +48,73 @@ public:
 
     void run_rob() {
         for (int i = 0; i < ROB_insert.size(); i ++) {
-            reorderBuffer_pre.push (ROB_insert[i]) ;
+            reorderBuffer_next.push (ROB_insert[i]) ;
         }
         for (int i = 0; i < ROB_update.size(); i ++) {
             pair<int, unsigned int> cur = ROB_update[i] ;
-            reorderBuffer_pre.update (cur.first, cur.second) ;
+            reorderBuffer_next.update (cur.first, cur.second) ;
         }
-        
+        pair<int, ROB> cur = reorderBuffer_next.front() ;
+        if (cur.second.ready == true) {
+            ROB_commit.push_back (cur) ;
+            reorderBuffer_next.pop() ;
+        }
     }
 
     void run_reservation() {
         for (int i = 0; i < RS_insert.size(); i ++) {
-            reservationStation_pre.push (RS_insert[i]) ;
+            reservationStation_next.push (RS_insert[i]) ;
         }
         for (int i = 0; i < 10; i ++) {
-            if (!reservationStation_pre.empty (i)) {
-                RS cur = reservationStation_pre.front (i) ;
+            if (!reservationStation_next.empty (i)) {
+                RS cur = reservationStation_next.front (i) ;
                 if (cur.qj == -1 && cur.qk == -1) {
                     Execute_ops.push_back (make_pair (RS_ops[i], cur)) ;
-                    reservationStation_pre.pop(i) ;
+                    reservationStation_next.pop(i) ;
                 }
             }
+        }
+        for (int i = 0; i < RS_update.size(); i ++) {
+            pair<int, unsigned int> cur = RS_update[i] ;
+            reservationStation_next.update (cur.first, cur.second) ;
+        }
+    }
+
+    void run_RegisterStatus () {
+        for (int i = 0; i < RStatus_insert.size(); i ++) {
+            pair<int, int> cur = RStatus_insert[i] ;
+            registerStatus_next[cur.first].q = cur.second ;
+            registerStatus_next[cur.first].busy = true ;
+        }
+        for (int i = 0; i < RStatus_update.size(); i ++) {
+            pair<int, unsigned int> cur = RStatus_update[i] ;
+            registerStatus_next[cur.first].q = -1 ;
+            registerStatus_next[cur.first].busy = false ;
+        }
+    }
+
+    void run_lsbuffer () {
+        for (int i = 0; i < LSB_insert.size(); i ++) {
+            loadStoreBuffer_next.push (LSB_insert[i]) ;
+        }
+        LSBuffer cur = loadStoreBuffer_next.front() ;
+        if (cur.qj == -1 && cur.qk == -1) {
+            loadStoreBuffer_next.pop() ;
+            if (cur.store == 0) {
+                unsigned int address = cur.vj + cur.A ;
+                unsigned int result = memory[address] ;
+                ROB_update.push_back (make_pair (cur.dest, result)) ;
+                RS_update.push_back (make_pair (cur.dest, result)) ;
+                LSB_update.push_back (make_pair (cur.dest, result)) ;
+            } else {
+                unsigned int address = cur.vj + cur.A ;
+                unsigned int result = cur.vk ;
+                memory[address] = result ;
+            }
+        }
+        for (int i = 0; i < LSB_update.size(); i ++) {
+            pair<int, unsigned int> cur = LSB_update[i] ;
+            loadStoreBuffer_next.update (cur.first, cur.second) ;
         }
     }
 
@@ -83,8 +132,8 @@ public:
         operation_parameter op = instructionQueue_next.front(); instructionQueue_next.pop() ;
         ROB_insert.push_back (op) ;
         int cur_ROB_pos = reorderBuffer_pre.nextPos() ;
-        if (op.rd != 0) {
-            RStatus_insert.push_back (make_pair (op.rd, cur_ROB_pos)) ;
+        if (op.rd != 0 && op.TYPE != 'S') {
+            RStatus_insert.push_back (make_pair (op.rd, cur_ROB_pos)) ;     
         }
         switch (op.type) {
             case lui: {
@@ -273,7 +322,7 @@ public:
                 break ;
             }
             case lb: {
-                LSBuffer cur; cur.A = op.imm ;
+                LSBuffer cur; cur.A = op.imm; cur.store = 0; cur.dest = cur_ROB_pos ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -285,11 +334,11 @@ public:
                 } else {
                     cur.vj = reg[op.rs]; cur.qj = -1 ;
                 }
-                LSB_insert.push_back (make_pair (0, cur)) ;
+                LSB_insert.push_back (cur) ;
                 break ;
             }
             case lh: {
-                LSBuffer cur; cur.A = op.imm ;
+                LSBuffer cur; cur.A = op.imm; cur.store = 0; cur.dest = cur_ROB_pos ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -301,11 +350,11 @@ public:
                 } else {
                     cur.vj = reg[op.rs]; cur.qj = -1 ;
                 }
-                LSB_insert.push_back (make_pair (0, cur)) ;
+                LSB_insert.push_back (cur) ;
                 break ;
             }
             case lw: {
-                LSBuffer cur; cur.A = op.imm ;
+                LSBuffer cur; cur.A = op.imm; cur.store = 0; cur.dest = cur_ROB_pos ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -317,11 +366,11 @@ public:
                 } else {
                     cur.vj = reg[op.rs]; cur.qj = -1 ;
                 }
-                LSB_insert.push_back (make_pair (0, cur)) ;
+                LSB_insert.push_back (cur) ;
                 break ;
             }
             case lbu: {
-                LSBuffer cur; cur.A = op.imm ;
+                LSBuffer cur; cur.A = op.imm; cur.store = 0; cur.dest = cur_ROB_pos ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -333,11 +382,11 @@ public:
                 } else {
                     cur.vj = reg[op.rs]; cur.qj = -1 ;
                 }
-                LSB_insert.push_back (make_pair (0, cur)) ;
+                LSB_insert.push_back (cur) ;
                 break ;
             }
             case lhu: {
-                LSBuffer cur; cur.A = op.imm ;
+                LSBuffer cur; cur.A = op.imm; cur.store = 0; cur.dest = cur_ROB_pos ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -349,11 +398,11 @@ public:
                 } else {
                     cur.vj = reg[op.rs]; cur.qj = -1 ;
                 }
-                LSB_insert.push_back (make_pair (0, cur)) ;
+                LSB_insert.push_back (cur) ;
                 break ;
             }
             case sb: {
-                LSBuffer cur; cur.A = op.imm ;
+                LSBuffer cur; cur.A = op.imm; cur.store = 1 ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -376,11 +425,11 @@ public:
                 } else {
                     cur.vk = reg[op.rt]; cur.qk = -1 ;
                 }
-                LSB_insert.push_back (make_pair (1, cur)) ;
+                LSB_insert.push_back (cur) ;
                 break ;
             }
             case sh: {
-                LSBuffer cur; cur.A = op.imm ;
+                LSBuffer cur; cur.A = op.imm; cur.store = 1 ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -403,11 +452,11 @@ public:
                 } else {
                     cur.vk = reg[op.rt]; cur.qk = -1 ;
                 }
-                LSB_insert.push_back (make_pair (1, cur)) ;
+                LSB_insert.push_back (cur) ;
                 break ;
             }
             case sw: {
-                LSBuffer cur; cur.A = op.imm ;
+                LSBuffer cur; cur.A = op.imm; cur.store = 1 ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -430,7 +479,7 @@ public:
                 } else {
                     cur.vk = reg[op.rt]; cur.qk = -1 ;
                 }
-                LSB_insert.push_back (make_pair (1, cur)) ;
+                LSB_insert.push_back (cur) ;
                 break ;
             }
             case addi: {
@@ -921,15 +970,33 @@ public:
             }
             ROB_update.push_back (make_pair (cur_rs.dest, result)) ;
             RS_update.push_back (make_pair (cur_rs.dest, result)) ;
+            LSB_update.push_back (make_pair (cur_rs.dest, result)) ;
         }
     }
 
     void commit () {
-
+        for (int i = 0; i < ROB_commit.size(); i ++) {
+            pair<int, ROB> cur = ROB_commit[i] ;
+            int d = cur.second.dest ;
+            if (cur.second.instruction == 'B') {
+                
+            } else {
+                reg[d] = cur.second.value ;
+            }
+        }
     }
 
     void run () {
-        
+        run_rob() ;
+        run_lsbuffer() ;
+        run_reservation() ;
+        run_RegisterStatus() ;
+        run_inst_fetch_queue() ;
+        update () ;
+
+        execute() ;
+        run_issue() ;
+        commit() ;
     }
 } ;
 

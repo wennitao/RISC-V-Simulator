@@ -18,10 +18,10 @@ enum optype {
 struct operation_parameter {
     char TYPE ;
     optype type ;
-    unsigned int rs, rt, rd, imm, shamt, pc ;
+    unsigned int rs = 0, rt = 0, rd = 0, imm = 0, shamt = 0, pc ;
 
     void print() {
-        printf("%c type:%d rs:%u rt:%u rd:%u imm:%u shamt:%u pc:%u", TYPE, type, rs, rt, rd, imm, shamt, pc) ;
+        printf("%c type:%d rs:%u rt:%u rd:%u imm:%u shamt:%u pc:%u\n", TYPE, type, rs, rt, rd, imm, shamt, pc) ;
     }
 } ;
 unsigned int sext (unsigned int x, int bit) {
@@ -52,7 +52,7 @@ operation_parameter decode_op (unsigned int op) {
         result.rd = (op >> 7) & ((1 << 5) - 1) ;
         result.imm = (op >> 12) << 12 ;
     } else if (opcode == 111) {
-        result.TYPE = 'J' ;
+        result.TYPE = 'B' ;
         result.type = jal ;
         result.rd = (op >> 7) & ((1 << 5) - 1) ;
         result.imm = ((op >> 12) & ((1 << 8) - 1)) << 12 ;
@@ -61,7 +61,7 @@ operation_parameter decode_op (unsigned int op) {
         result.imm |= (op >> 31) << 20 ;
         result.imm = sext (result.imm, 20) ;
     } else if (opcode == 103) {
-        result.TYPE = 'I' ;
+        result.TYPE = 'B' ;
         result.type = jalr ;
         result.rd = (op >> 7) & ((1 << 5) - 1) ;
         result.rs = (op >> 15) & ((1 << 5) - 1) ;

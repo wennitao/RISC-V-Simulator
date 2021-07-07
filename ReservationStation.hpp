@@ -3,53 +3,55 @@
 
 #include <bits/stdc++.h>
 
-enum RS_op {
-    rs_add, rs_sub, rs_equal, rs_less, rs_lessu, rs_xor, rs_or, rs_and, rs_sll, rs_srl
-} ;
-
-RS_op RS_ops[10] = {rs_add, rs_sub, rs_equal, rs_less, rs_lessu, rs_xor, rs_or, rs_and, rs_sll, rs_srl} ;
+#include "decode.hpp"
 
 struct RS {
     bool busy ;
-    unsigned int vj, qj = -1, vk, qk = -1, dest ;
+    unsigned int vj, vk, dest, imm ;
+    int qj, qk ;
+    optype op ;
+
+    void print() {
+        printf("op:%d busy:%d vj:%u qj:%d vk:%u qk:%d dest:%u imm:%u\n", op, busy, vj, qj, vk, qk, dest, imm) ;
+    }
 } ;
 
 class ReservationStation {
 public:
-    RS que[10][10] ;
-    int head[5], tail[5] ;
+    RS que[10] ;
+    int head, tail ;
 
 public:
     ReservationStation () {
-        memset (head, 0, sizeof head) ;
-        memset (tail, 0, sizeof tail) ;
+        head = tail = 0 ;
     }
 
-    void push (std::pair<RS_op, RS> op) {
-        int id = op.first ;
-        que[id][tail[id]] = op.second ;
-        tail[id] = (tail[id] + 1) % max_size ;
+    void push (RS op) {
+        que[tail] = op ;
+        tail = (tail + 1) % max_size ;
     }
 
-    bool empty (int op) const {
-        return head[op] == tail[op] ;
+    bool empty () const {
+        return head == tail ;
     }
 
-    RS front (int op) const {
-        RS res = que[op][head[op]] ;
-        return res ;
+    RS front () const {
+        return que[head] ;
     }
 
-    void pop (int op) {
-        head[op] = (head[op] + 1) % max_size ;
+    void pop () {
+        head = (head + 1) % max_size ;
     }
 
     void update (int rob_id, unsigned int result) {
-        for (int i = 0; i < 10; i ++)
-            for (int j = head[i]; j != tail[i]; j = (j + 1) % max_size) {
-                if (que[i][j].qj == rob_id) que[i][j].qj = -1, que[i][j].vj = result ;
-                if (que[i][j].qk == rob_id) que[i][j].qk = -1, que[i][j].vk = result ;
-            }
+        for (int j = head; j != tail; j = (j + 1) % max_size) {
+            if (que[j].qj == rob_id) que[j].qj = -1, que[j].vj = result ;
+            if (que[j].qk == rob_id) que[j].qk = -1, que[j].vk = result ;
+        }
+    }
+
+    void clear() {
+        head = tail = 0 ;
     }
 } ;
 

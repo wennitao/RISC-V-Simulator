@@ -32,6 +32,10 @@ public:
     void pop () {
         head = (head + 1) % max_size ;
     }
+
+    void clear() {
+        head = tail = 0 ;
+    }
 } ;
 
 #endif

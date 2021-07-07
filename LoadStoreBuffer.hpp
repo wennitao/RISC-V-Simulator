@@ -4,6 +4,10 @@
 struct LSBuffer {
     bool store ;
     unsigned int vj, qj = -1, vk, qk = -1, A, dest ;
+
+    void print() {
+        printf("store:%d vj:%u qj:%u vk:%u qk:%u A:%u dest:%u\n", store, vj, qj, vk, qk, A, dest) ;
+    }
 } ;
 
 class LoadStoreBuffer {
@@ -42,6 +46,10 @@ public:
             if (que[i].qj == rob_id) que[i].qj = -1, que[i].vj = val ;
             if (que[i].qk == rob_id) que[i].qk = -1, que[i].vk = val ;
         }
+    }
+
+    void clear() {
+        head = tail = 0 ;
     }
 } ;
 

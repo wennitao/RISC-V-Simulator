@@ -12,15 +12,13 @@
 #include "LoadStoreBuffer.hpp"
 
 std::vector<operation_parameter> ROB_insert ;
-std::vector<pair<int, unsigned int> > ROB_update ;
-std::vector<pair<RS_op, RS> > RS_insert ;
-std::vector<pair<int, unsigned int> > RS_update ;
+std::vector<RS> RS_insert ;
 std::vector<LSBuffer> LSB_insert ;
-std::vector<pair<int, unsigned int> > LSB_update ;
 std::vector<pair<int, int> > RStatus_insert ;
 std::vector<pair<int, unsigned int> > RStatus_update ;
-std::vector<pair<RS_op, RS> > Execute_ops ;
-std::vector<pair<int, ROB> > ROB_commit ;
+std::vector<RS> Execute_ops ;
+std::vector<ROB> ROB_commit ;
+std::vector<pair<int, unsigned int> > CDB ;
 
 class runcode {
 private:
@@ -49,14 +47,16 @@ public:
     void run_rob() {
         for (int i = 0; i < ROB_insert.size(); i ++) {
             reorderBuffer_next.push (ROB_insert[i]) ;
+            printf("ROB insert "); ROB_insert[i].print() ;
         }
-        for (int i = 0; i < ROB_update.size(); i ++) {
-            pair<int, unsigned int> cur = ROB_update[i] ;
+        for (int i = 0; i < CDB.size(); i ++) {
+            pair<int, unsigned int> cur = CDB[i] ;
             reorderBuffer_next.update (cur.first, cur.second) ;
+            printf("ROB update %d %u\n", cur.first, cur.second) ;
         }
         if (reorderBuffer_next.empty()) return ;
-        pair<int, ROB> cur = reorderBuffer_next.front() ;
-        if (cur.second.ready == true) {
+        ROB cur = reorderBuffer_next.front() ;
+        if (cur.ready == true) {
             ROB_commit.push_back (cur) ;
             reorderBuffer_next.pop() ;
         }
@@ -64,19 +64,21 @@ public:
 
     void run_reservation() {
         for (int i = 0; i < RS_insert.size(); i ++) {
+            printf("RS insert "); RS_insert[i].print() ;
             reservationStation_next.push (RS_insert[i]) ;
         }
         for (int i = 0; i < 10; i ++) {
-            if (!reservationStation_next.empty (i)) {
-                RS cur = reservationStation_next.front (i) ;
+            if (!reservationStation_next.empty ()) {
+                RS cur = reservationStation_next.front () ;
                 if (cur.qj == -1 && cur.qk == -1) {
-                    Execute_ops.push_back (make_pair (RS_ops[i], cur)) ;
-                    reservationStation_next.pop(i) ;
+                    Execute_ops.push_back (cur) ;
+                    reservationStation_next.pop() ;
                 }
             }
         }
-        for (int i = 0; i < RS_update.size(); i ++) {
-            pair<int, unsigned int> cur = RS_update[i] ;
+        for (int i = 0; i < CDB.size(); i ++) {
+            pair<int, unsigned int> cur = CDB[i] ;
+            printf("RS update %d %d\n", cur.first, cur.second) ;
             reservationStation_next.update (cur.first, cur.second) ;
         }
     }
@@ -96,6 +98,7 @@ public:
 
     void run_lsbuffer () {
         for (int i = 0; i < LSB_insert.size(); i ++) {
+            printf("LSB insert "); LSB_insert[i].print() ;
             loadStoreBuffer_next.push (LSB_insert[i]) ;
         }
         if (!loadStoreBuffer_next.empty()) {
@@ -105,29 +108,28 @@ public:
                 if (cur.store == 0) {
                     unsigned int address = cur.vj + cur.A ;
                     unsigned int result = memory[address] ;
-                    ROB_update.push_back (make_pair (cur.dest, result)) ;
-                    RS_update.push_back (make_pair (cur.dest, result)) ;
-                    LSB_update.push_back (make_pair (cur.dest, result)) ;
+                    CDB.push_back (make_pair (cur.dest, result)) ;
+                    printf("LSB load %u %u\n", address, result) ;
                 } else {
                     unsigned int address = cur.vj + cur.A ;
                     unsigned int result = cur.vk ;
                     memory[address] = result ;
+                    printf("LSB store %u %u\n", address, result) ;
                 }
             }
         }
-        for (int i = 0; i < LSB_update.size(); i ++) {
-            pair<int, unsigned int> cur = LSB_update[i] ;
+        for (int i = 0; i < CDB.size(); i ++) {
+            pair<int, unsigned int> cur = CDB[i] ;
+            printf("LSB update %d %u\n", cur.first, cur.second) ;
             loadStoreBuffer_next.update (cur.first, cur.second) ;
         }
     }
 
     void update () {
         ROB_insert.clear() ;
-        ROB_update.clear() ;
         RS_insert.clear() ;
-        RS_update.clear() ;
         LSB_insert.clear() ;
-        LSB_update.clear() ;
+        CDB.clear() ;
         RStatus_insert.clear() ;
         RStatus_update.clear() ;
         Execute_ops.clear() ;
@@ -143,7 +145,9 @@ public:
 
     void run_issue () {
         if (reorderBuffer_next.full()) return ;
+        printf("issue\n") ;
         operation_parameter op = instructionQueue_next.front(); instructionQueue_next.pop() ;
+        op.print() ;
         ROB_insert.push_back (op) ;
         int cur_ROB_pos = reorderBuffer_pre.nextPos() ;
         if (op.rd != 0 && op.TYPE != 'S') {
@@ -151,24 +155,36 @@ public:
         }
         switch (op.type) {
             case lui: {
-                ROB_update.push_back (make_pair (cur_ROB_pos, op.imm)) ;
+                CDB.push_back (make_pair (cur_ROB_pos, op.imm)) ;
                 break ;
             }
             case auipc: {
-                RS cur; cur.vj = op.pc; cur.vk = op.imm; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_add, cur)) ;
+                RS cur; cur.vj = op.pc; cur.vk = op.imm; cur.dest = cur_ROB_pos; cur.op = auipc ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case jal: {
-                RS cur; cur.vj = op.pc; cur.vk = 4; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_add, cur)) ;
+                RS cur; cur.vj = op.pc; cur.vk = op.imm; cur.dest = cur_ROB_pos; cur.op = jal ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case jalr: {
-                
+                RS cur; cur.dest = cur_ROB_pos; cur.vk = op.imm; cur.op = jalr ;
+                if (registerStatus_pre[op.rs].busy) {
+                    int h = registerStatus_pre[op.rs].q ;
+                    if (reorderBuffer_pre.que[h].ready) {
+                        cur.vj = reorderBuffer_pre.que[h].value ;
+                        cur.qj = -1 ;
+                    } else {
+                        cur.qj = h ;
+                    }
+                } else {
+                    cur.vj = reg[op.rs]; cur.qj = -1 ;
+                }
+                RS_insert.push_back (cur) ;
             }
             case beq: {
-                RS cur ;
+                RS cur; cur.imm = op.imm ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -191,8 +207,8 @@ public:
                 } else {
                     cur.vk = reg[op.rt]; cur.qk = -1 ;
                 }
-                cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_equal, cur)) ;
+                cur.busy = true; cur.dest = cur_ROB_pos; cur.op = beq ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case bne: {
@@ -219,8 +235,8 @@ public:
                 } else {
                     cur.vk = reg[op.rt]; cur.qk = -1 ;
                 }
-                cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_equal, cur)) ;
+                cur.busy = true; cur.dest = cur_ROB_pos; cur.op = bne ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case blt: {
@@ -247,8 +263,8 @@ public:
                 } else {
                     cur.vk = reg[op.rt]; cur.qk = -1 ;
                 }
-                cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_less, cur)) ;
+                cur.busy = true; cur.dest = cur_ROB_pos; cur.op = blt ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case bge: {
@@ -275,8 +291,8 @@ public:
                 } else {
                     cur.vk = reg[op.rt]; cur.qk = -1 ;
                 }
-                cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_less, cur)) ;
+                cur.busy = true; cur.dest = cur_ROB_pos; cur.op = bge ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case bltu: {
@@ -303,8 +319,8 @@ public:
                 } else {
                     cur.vk = reg[op.rt]; cur.qk = -1 ;
                 }
-                cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_lessu, cur)) ;
+                cur.busy = true; cur.dest = cur_ROB_pos; cur.op = bltu ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case bgeu: {
@@ -331,8 +347,8 @@ public:
                 } else {
                     cur.vk = reg[op.rt]; cur.qk = -1 ;
                 }
-                cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_lessu, cur)) ;
+                cur.busy = true; cur.dest = cur_ROB_pos; cur.op = bgeu ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case lb: {
@@ -470,7 +486,7 @@ public:
                 break ;
             }
             case sw: {
-                LSBuffer cur; cur.A = op.imm; cur.store = 1 ;
+                LSBuffer cur; cur.A = op.imm; cur.store = 1 ; 
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -497,7 +513,7 @@ public:
                 break ;
             }
             case addi: {
-                RS cur; cur.vk = op.imm; cur.qk = -1 ;
+                RS cur; cur.vk = op.imm; cur.qk = -1; cur.op = addi ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -510,11 +526,11 @@ public:
                     cur.vj = reg[op.rs]; cur.qj = -1 ;
                 }
                 cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_add, cur)) ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case slti: {
-                RS cur; cur.vk = op.imm; cur.qk = -1 ;
+                RS cur; cur.vk = op.imm; cur.qk = -1; cur.op = slti ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -527,11 +543,11 @@ public:
                     cur.vj = reg[op.rs]; cur.qj = -1 ;
                 }
                 cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_less, cur)) ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case sltiu: {
-                RS cur; cur.vk = op.imm; cur.qk = -1 ;
+                RS cur; cur.vk = op.imm; cur.qk = -1; cur.op = sltiu ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -544,11 +560,11 @@ public:
                     cur.vj = reg[op.rs]; cur.qj = -1 ;
                 }
                 cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_lessu, cur)) ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case xori: {
-                RS cur; cur.vk = op.imm; cur.qk = -1 ;
+                RS cur; cur.vk = op.imm; cur.qk = -1; cur.op = xori ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -561,11 +577,11 @@ public:
                     cur.vj = reg[op.rs]; cur.qj = -1 ;
                 }
                 cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_xor, cur)) ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case ori: {
-                RS cur; cur.vk = op.imm; cur.qk = -1 ;
+                RS cur; cur.vk = op.imm; cur.qk = -1; cur.op = ori ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -578,11 +594,11 @@ public:
                     cur.vj = reg[op.rs]; cur.qj = -1 ;
                 }
                 cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_or, cur)) ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case andi: {
-                RS cur; cur.vk = op.imm; cur.qk = -1 ;
+                RS cur; cur.vk = op.imm; cur.qk = -1; cur.op = andi ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -595,11 +611,11 @@ public:
                     cur.vj = reg[op.rs]; cur.qj = -1 ;
                 }
                 cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_and, cur)) ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case slli: {
-                RS cur; cur.vk = op.imm; cur.qk = -1 ;
+                RS cur; cur.vk = op.imm; cur.qk = -1; cur.op = slli ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -612,11 +628,11 @@ public:
                     cur.vj = reg[op.rs]; cur.qj = -1 ;
                 }
                 cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_sll, cur)) ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case srli: {
-                RS cur; cur.vk = op.imm; cur.qk = -1 ;
+                RS cur; cur.vk = op.imm; cur.qk = -1; cur.op = srli ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -629,11 +645,11 @@ public:
                     cur.vj = reg[op.rs]; cur.qj = -1 ;
                 }
                 cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_srl, cur)) ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case srai: {
-                RS cur; cur.vk = op.imm; cur.qk = -1 ;
+                RS cur; cur.vk = op.imm; cur.qk = -1; cur.op = srai ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -646,11 +662,11 @@ public:
                     cur.vj = reg[op.rs]; cur.qj = -1 ;
                 }
                 cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_srl, cur)) ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case add: {
-                RS cur ;
+                RS cur; cur.op = add ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -674,11 +690,11 @@ public:
                     cur.vk = reg[op.rt]; cur.qk = -1 ;
                 }
                 cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_add, cur)) ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case sub: {
-                RS cur ;
+                RS cur; cur.op = sub ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -702,11 +718,11 @@ public:
                     cur.vk = reg[op.rt]; cur.qk = -1 ;
                 }
                 cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_sub, cur)) ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case sll: {
-                RS cur ;
+                RS cur; cur.op = sll ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -730,11 +746,11 @@ public:
                     cur.vk = reg[op.rt]; cur.qk = -1 ;
                 }
                 cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_sll, cur)) ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case slt: {
-                RS cur ;
+                RS cur; cur.op = slt ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -758,11 +774,11 @@ public:
                     cur.vk = reg[op.rt]; cur.qk = -1 ;
                 }
                 cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_less, cur)) ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case sltu: {
-                RS cur ;
+                RS cur; cur.op = sltu ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -786,11 +802,11 @@ public:
                     cur.vk = reg[op.rt]; cur.qk = -1 ;
                 }
                 cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_lessu, cur)) ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case _xor: {
-                RS cur ;
+                RS cur; cur.op = _xor ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -814,11 +830,11 @@ public:
                     cur.vk = reg[op.rt]; cur.qk = -1 ;
                 }
                 cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_xor, cur)) ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case srl: {
-                RS cur ;
+                RS cur; cur.op = srl ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -842,11 +858,11 @@ public:
                     cur.vk = reg[op.rt]; cur.qk = -1 ;
                 }
                 cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_srl, cur)) ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case sra: {
-                RS cur ;
+                RS cur; cur.op = sra ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -870,11 +886,11 @@ public:
                     cur.vk = reg[op.rt]; cur.qk = -1 ;
                 }
                 cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_srl, cur)) ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case _or: {
-                RS cur ;
+                RS cur; cur.op = _or ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -898,11 +914,11 @@ public:
                     cur.vk = reg[op.rt]; cur.qk = -1 ;
                 }
                 cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_or, cur)) ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             case _and: {
-                RS cur ;
+                RS cur; cur.op = _and ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -926,7 +942,7 @@ public:
                     cur.vk = reg[op.rt]; cur.qk = -1 ;
                 }
                 cur.busy = true; cur.dest = cur_ROB_pos ;
-                RS_insert.push_back (make_pair (rs_and, cur)) ;
+                RS_insert.push_back (cur) ;
                 break ;
             }
             default:
@@ -936,68 +952,205 @@ public:
 
     void execute () {
         for (int i = 0; i < Execute_ops.size(); i ++) {
-            RS_op op = Execute_ops[i].first; RS cur_rs = Execute_ops[i].second ;
+            printf("execute\n") ;
+            RS rs = Execute_ops[i] ;
             unsigned int result ;
-            switch (op) {
-                case rs_add: {
-                    result = cur_rs.vj + cur_rs.vk ;
+            switch (rs.op) {
+                case auipc: {
+                    result = rs.vj + rs.vk ;
                     break ;
                 }
-                case rs_sub: {
-                    result = cur_rs.vj - cur_rs.vk ;
+                case jal: {
+                    result = rs.vk ;
                     break ;
                 }
-                case rs_equal: {
-                    result = cur_rs.vj == cur_rs.vk ;
+                case jalr: {
+                    result = (rs.vj + rs.vk) & ~1 ;
                     break ;
                 }
-                case rs_less: {
-                    result = (int)cur_rs.vj < (int)cur_rs.vk ;
+                case beq: {
+                    if (rs.vj == rs.vk) result = rs.imm ;
+                    else result = 4 ;
                     break ;
                 }
-                case rs_lessu: {
-                    result = cur_rs.vj < cur_rs.vk ;
+                case bne: {
+                    if (rs.vj != rs.vk) result = rs.imm ;
+                    else result = 4 ;
                     break ;
                 }
-                case rs_xor: {
-                    result = cur_rs.vj ^ cur_rs.vk ;
+                case blt: {
+                    if ((int)rs.vj < (int)rs.vk) result = rs.imm ;
+                    else result = 4 ;
                     break ;
                 }
-                case rs_or: {
-                    result = cur_rs.vj | cur_rs.vk ;
+                case bge: {
+                    if ((int)rs.vj >= (int)rs.vk) result = rs.imm ;
+                    else result = 4 ;
                     break ;
                 }
-                case rs_and: {
-                    result = cur_rs.vj & cur_rs.vk ;
+                case bltu: {
+                    if (rs.vj < rs.vk) result = rs.imm ;
+                    else result = 4 ;
                     break ;
                 }
-                case rs_sll: {
-                    result = cur_rs.vj << (cur_rs.vk & ((1 << 5) - 1)) ;
+                case bgeu: {
+                    if (rs.vj >= rs.vk) result = rs.imm ;
+                    else result = 4 ;
                     break ;
                 }
-                case rs_srl: {
-                    result = cur_rs.vj >> (cur_rs.vk & ((1 << 5) - 1)) ;
+                case addi: {
+                    result = rs.vj + rs.vk ;
+                    break ;
+                }
+                case slti: {
+                    result = (int)rs.vj < (int)rs.vk ;
+                    break ;
+                }
+                case sltiu: {
+                    result = rs.vj < rs.vk ;
+                    break ;
+                }
+                case xori: {
+                    result = rs.vj ^ rs.vk ;
+                    break ;
+                }
+                case ori: {
+                    result = rs.vj | rs.vk ;
+                    break ;
+                }
+                case andi: {
+                    result = rs.vj & rs.vk ;
+                    break ;
+                }
+                case slli: {
+                    result = rs.vj << rs.vk ;
+                    break ;
+                }
+                case srli: {
+                    result = rs.vj >> rs.vk ;
+                    break ;
+                }
+                case srai: {
+                    result = sext (rs.vj >> rs.vk, 31 - rs.vk) ;
+                    break ;
+                }
+                case add: {
+                    result = rs.vj + rs.vk ;
+                    break ;
+                }
+                case sub: {
+                    result = rs.vj - rs.vk ;
+                    break ;
+                }
+                case sll: {
+                    result = rs.vj << (rs.vk & ((1 << 5) - 1)) ;
+                    break ;
+                }
+                case slt: {
+                    result = (int)rs.vj < (int)rs.vk ;
+                    break ;
+                }
+                case sltu: {
+                    result = rs.vj < rs.vk ;
+                    break ;
+                }
+                case _xor: {
+                    result = rs.vj ^ rs.vk ;
+                    break ;
+                }
+                case srl: {
+                    result = rs.vj >> (rs.vk & ((1 << 5) - 1)) ;
+                    break ;
+                }
+                case sra: {
+                    result = sext (rs.vj >> (rs.vk & ((1 << 5) - 1)), 31 - (rs.vk & ((1 << 5) - 1))) ;
+                    break ;
+                }
+                case _or: {
+                    result = rs.vj | rs.vk ;
+                    break ;
+                }
+                case _and: {
+                    result = rs.vj & rs.vk ;
                     break ;
                 }
                 default:
                     break;
             }
-            ROB_update.push_back (make_pair (cur_rs.dest, result)) ;
-            RS_update.push_back (make_pair (cur_rs.dest, result)) ;
-            LSB_update.push_back (make_pair (cur_rs.dest, result)) ;
+            CDB.push_back (make_pair (rs.dest, result)) ;
+        }
+    }
+
+    void clear() {
+        ROB_insert.clear() ;
+        RS_insert.clear() ;
+        LSB_insert.clear() ;
+        CDB.clear() ;
+        RStatus_insert.clear() ;
+        RStatus_update.clear() ;
+        Execute_ops.clear() ;
+
+        instructionQueue_next.clear() ;
+        reorderBuffer_next.clear() ;
+        reservationStation_next.clear() ;
+        loadStoreBuffer_next.clear() ;
+
+        for (int i = 0; i < 32; i ++) {
+            registerStatus_next[i].busy = false ;
+            registerStatus_next[i].q = -1 ;
         }
     }
 
     void commit () {
         for (int i = 0; i < ROB_commit.size(); i ++) {
-            pair<int, ROB> cur = ROB_commit[i] ;
-            int d = cur.second.dest ;
-            if (cur.second.instruction == 'B') {
-                
-            } else if (cur.second.instruction == 'E') {
+            ROB cur = ROB_commit[i] ;
+            int d = cur.dest ;
+            if (cur.instruction == 'B') {
+                switch (cur.op) {
+                    case jal: {
+                        reg[d] = cur.pc + 4 ;
+                        RStatus_update.push_back (make_pair (d, cur.pc + 4)) ;
+                        if (cur.value != 4) clear(), pc += cur.value ;
+                        break ;
+                    }
+                    case jalr: {
+                        reg[d] = cur.pc + 4 ;
+                        RStatus_update.push_back (make_pair (d, cur.pc + 4)) ;
+                        if (cur.value != pc + 4) clear(), pc = cur.value ;
+                        break ;
+                    }
+                    case beq: {
+                        if (cur.value != 4) clear(), pc += cur.value ;
+                        break ;
+                    }
+                    case bne: {
+                        if (cur.value != 4) clear(), pc += cur.value ;
+                        break ;
+                    }
+                    case blt: {
+                        if (cur.value != 4) clear(), pc += cur.value ;
+                        break ;
+                    }
+                    case bge: {
+                        if (cur.value != 4) clear(), pc += cur.value ;
+                        break ;
+                    }
+                    case bltu: {
+                        if (cur.value != 4) clear(), pc += cur.value ;
+                        break ;
+                    }
+                    case bgeu: {
+                        if (cur.value != 4) clear(), pc += cur.value ;
+                        break ;
+                    }
+                    default:
+                        break ;
+                }
+            } else if (cur.instruction == 'E') {
                 throw "return" ;
             } else {
-                reg[d] = cur.second.value ;
+                reg[d] = cur.value ;
+                RStatus_update.push_back (make_pair (d, cur.value)) ;
             }
         }
     }
@@ -1005,14 +1158,14 @@ public:
     void run () {
         unsigned int clock = 0 ;
         while (1) {
-            printf("clock %d\n", clock ++) ;
+            printf("clock:%d pc:%x\n", clock ++, pc) ;
             run_rob() ;
             run_lsbuffer() ;
             run_reservation() ;
             run_RegisterStatus() ;
             run_inst_fetch_queue() ;
             update () ;
-            
+
             execute() ;
             run_issue() ;
             commit() ;

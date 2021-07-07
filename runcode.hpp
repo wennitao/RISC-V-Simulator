@@ -69,7 +69,6 @@ public:
         }
         if (!reservationStation_next.empty ()) {
             RS cur = reservationStation_next.front () ;
-            cur.print() ;
             if (cur.qj == -1 && cur.qk == -1) {
                 Execute_ops.push_back (cur) ;
                 reservationStation_next.pop() ;
@@ -106,12 +105,25 @@ public:
                 loadStoreBuffer_next.pop() ;
                 if (cur.store == 0) {
                     unsigned int address = cur.vj + cur.A ;
-                    unsigned int result = memory[address] ;
+                    unsigned int result ;
+                    if (cur.op == lb) result = sext (memory[address], 7) ;
+                    else if (cur.op == lh) {
+                        result = ((unsigned int)memory[address + 1] << 8) + memory[address] ;
+                        result = sext (result, 15) ;
+                    } else if (cur.op == lw) {
+                        result = ((unsigned int)memory[address + 3] << 24) + ((unsigned int)memory[address + 2] << 16) + ((unsigned int)memory[address + 1] << 8) + memory[address] ;
+                    } else if (cur.op == lbu) {
+                        result = memory[address] ;
+                    } else if (cur.op == lhu) {
+                        result = ((unsigned int)memory[address + 1] << 8) + memory[address] ;
+                    }
                     CDB.push_back (make_pair (cur.dest, result)) ;
                     printf("LSB load %u %u\n", address, result) ;
                 } else {
                     unsigned int address = cur.vj + cur.A ;
                     unsigned int result = cur.vk ;
+                    if (cur.op == sb) result = result & ((1 << 8) - 1) ;
+                    else if (cur.op == sh) result = result & ((1 << 16) - 1) ;
                     memory[address] = result ;
                     printf("LSB store %u %u\n", address, result) ;
                 }
@@ -143,7 +155,8 @@ public:
     void run_issue () {
         if (reorderBuffer_next.full()) return ;
         if (reservationStation_next.full()) return ;
-        printf("issue\n") ;
+        if (loadStoreBuffer_next.full()) return ;
+        printf("issue ") ;
         operation_parameter op = instructionQueue_next.front(); instructionQueue_next.pop() ;
         op.print() ;
         ROB_insert.push_back (op) ;
@@ -350,7 +363,7 @@ public:
                 break ;
             }
             case lb: {
-                LSBuffer cur; cur.A = op.imm; cur.store = 0; cur.dest = cur_ROB_pos ;
+                LSBuffer cur; cur.A = op.imm; cur.store = 0; cur.dest = cur_ROB_pos; cur.op = lb ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -366,7 +379,7 @@ public:
                 break ;
             }
             case lh: {
-                LSBuffer cur; cur.A = op.imm; cur.store = 0; cur.dest = cur_ROB_pos ;
+                LSBuffer cur; cur.A = op.imm; cur.store = 0; cur.dest = cur_ROB_pos; cur.op = lh ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -382,7 +395,7 @@ public:
                 break ;
             }
             case lw: {
-                LSBuffer cur; cur.A = op.imm; cur.store = 0; cur.dest = cur_ROB_pos ;
+                LSBuffer cur; cur.A = op.imm; cur.store = 0; cur.dest = cur_ROB_pos; cur.op = lw ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -398,7 +411,7 @@ public:
                 break ;
             }
             case lbu: {
-                LSBuffer cur; cur.A = op.imm; cur.store = 0; cur.dest = cur_ROB_pos ;
+                LSBuffer cur; cur.A = op.imm; cur.store = 0; cur.dest = cur_ROB_pos; cur.op = lbu ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -414,7 +427,7 @@ public:
                 break ;
             }
             case lhu: {
-                LSBuffer cur; cur.A = op.imm; cur.store = 0; cur.dest = cur_ROB_pos ;
+                LSBuffer cur; cur.A = op.imm; cur.store = 0; cur.dest = cur_ROB_pos; cur.op = lhu ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -430,7 +443,7 @@ public:
                 break ;
             }
             case sb: {
-                LSBuffer cur; cur.A = op.imm; cur.store = 1 ;
+                LSBuffer cur; cur.A = op.imm; cur.store = 1; cur.op = sb ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -457,7 +470,7 @@ public:
                 break ;
             }
             case sh: {
-                LSBuffer cur; cur.A = op.imm; cur.store = 1 ;
+                LSBuffer cur; cur.A = op.imm; cur.store = 1; cur.op = sh ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -484,7 +497,7 @@ public:
                 break ;
             }
             case sw: {
-                LSBuffer cur; cur.A = op.imm; cur.store = 1 ; 
+                LSBuffer cur; cur.A = op.imm; cur.store = 1; cur.op = sw ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {

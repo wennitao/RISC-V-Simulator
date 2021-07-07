@@ -5,6 +5,7 @@ struct LSBuffer {
     bool store ;
     unsigned int vj, vk, A, dest ;
     int qj = -1, qk = -1 ;
+    optype op ;
 
     void print() {
         printf("store:%d vj:%u qj:%u vk:%u qk:%u A:%u dest:%u\n", store, vj, qj, vk, qk, A, dest) ;

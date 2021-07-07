@@ -21,7 +21,7 @@ struct operation_parameter {
     unsigned int rs = 0, rt = 0, rd = 0, imm = 0, shamt = 0, pc ;
 
     void print() {
-        printf("%c type:%d rs:%u rt:%u rd:%u imm:%u shamt:%u pc:%u\n", TYPE, type, rs, rt, rd, imm, shamt, pc) ;
+        printf("%c type:%d rs:%u rt:%u rd:%u imm:%u shamt:%u pc:%x\n", TYPE, type, rs, rt, rd, imm, shamt, pc) ;
     }
 } ;
 unsigned int sext (unsigned int x, int bit) {

@@ -8,7 +8,7 @@
 struct RS {
     bool busy ;
     unsigned int vj, vk, dest, imm ;
-    int qj, qk ;
+    int qj = -1, qk = -1 ;
     optype op ;
 
     void print() {
@@ -33,6 +33,10 @@ public:
 
     bool empty () const {
         return head == tail ;
+    }
+
+    bool full () const {
+        return (tail + 1) % max_size == head ;
     }
 
     RS front () const {

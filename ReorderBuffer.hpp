@@ -8,6 +8,10 @@ struct ROB {
     optype op ;
     bool ready ;
     unsigned int dest, value, pc ;
+
+    void print() {
+        printf("instruction:%c op:%d ready:%d dest:%u value:%u pc:%u\n", instruction, op, ready, dest, value, pc) ;
+    }
 } ;
 
 class ReorderBuffer {

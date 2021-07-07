@@ -3,7 +3,8 @@
 
 struct RegisterStatus {
     bool busy ;
-    unsigned int q, v ;
+    unsigned int v ;
+    int q = -1 ;
 } ;
 
 #endif

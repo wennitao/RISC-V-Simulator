@@ -3,7 +3,8 @@
 
 struct LSBuffer {
     bool store ;
-    unsigned int vj, qj = -1, vk, qk = -1, A, dest ;
+    unsigned int vj, vk, A, dest ;
+    int qj = -1, qk = -1 ;
 
     void print() {
         printf("store:%d vj:%u qj:%u vk:%u qk:%u A:%u dest:%u\n", store, vj, qj, vk, qk, A, dest) ;

@@ -67,13 +67,12 @@ public:
             printf("RS insert "); RS_insert[i].print() ;
             reservationStation_next.push (RS_insert[i]) ;
         }
-        for (int i = 0; i < 10; i ++) {
-            if (!reservationStation_next.empty ()) {
-                RS cur = reservationStation_next.front () ;
-                if (cur.qj == -1 && cur.qk == -1) {
-                    Execute_ops.push_back (cur) ;
-                    reservationStation_next.pop() ;
-                }
+        if (!reservationStation_next.empty ()) {
+            RS cur = reservationStation_next.front () ;
+            cur.print() ;
+            if (cur.qj == -1 && cur.qk == -1) {
+                Execute_ops.push_back (cur) ;
+                reservationStation_next.pop() ;
             }
         }
         for (int i = 0; i < CDB.size(); i ++) {
@@ -132,8 +131,6 @@ public:
         CDB.clear() ;
         RStatus_insert.clear() ;
         RStatus_update.clear() ;
-        Execute_ops.clear() ;
-        ROB_commit.clear() ;
 
         for (int i = 0; i < 32; i ++)
             registerStatus_pre[i] = registerStatus_next[i] ;
@@ -145,6 +142,7 @@ public:
 
     void run_issue () {
         if (reorderBuffer_next.full()) return ;
+        if (reservationStation_next.full()) return ;
         printf("issue\n") ;
         operation_parameter op = instructionQueue_next.front(); instructionQueue_next.pop() ;
         op.print() ;
@@ -952,8 +950,9 @@ public:
 
     void execute () {
         for (int i = 0; i < Execute_ops.size(); i ++) {
-            printf("execute\n") ;
+            printf("execute ") ;
             RS rs = Execute_ops[i] ;
+            rs.print() ;
             unsigned int result ;
             switch (rs.op) {
                 case auipc: {
@@ -1104,43 +1103,44 @@ public:
     void commit () {
         for (int i = 0; i < ROB_commit.size(); i ++) {
             ROB cur = ROB_commit[i] ;
+            printf("commit "); cur.print() ;
             int d = cur.dest ;
             if (cur.instruction == 'B') {
                 switch (cur.op) {
                     case jal: {
                         reg[d] = cur.pc + 4 ;
                         RStatus_update.push_back (make_pair (d, cur.pc + 4)) ;
-                        if (cur.value != 4) clear(), pc += cur.value ;
+                        if (cur.value != 4) clear(), pc = cur.pc + cur.value ;
                         break ;
                     }
                     case jalr: {
                         reg[d] = cur.pc + 4 ;
                         RStatus_update.push_back (make_pair (d, cur.pc + 4)) ;
-                        if (cur.value != pc + 4) clear(), pc = cur.value ;
+                        if (cur.value != cur.pc + 4) clear(), pc = cur.value ;
                         break ;
                     }
                     case beq: {
-                        if (cur.value != 4) clear(), pc += cur.value ;
+                        if (cur.value != 4) clear(), pc = cur.pc + cur.value ;
                         break ;
                     }
                     case bne: {
-                        if (cur.value != 4) clear(), pc += cur.value ;
+                        if (cur.value != 4) clear(), pc = cur.pc + cur.value ;
                         break ;
                     }
                     case blt: {
-                        if (cur.value != 4) clear(), pc += cur.value ;
+                        if (cur.value != 4) clear(), pc = cur.pc + cur.value ;
                         break ;
                     }
                     case bge: {
-                        if (cur.value != 4) clear(), pc += cur.value ;
+                        if (cur.value != 4) clear(), pc = cur.pc + cur.value ;
                         break ;
                     }
                     case bltu: {
-                        if (cur.value != 4) clear(), pc += cur.value ;
+                        if (cur.value != 4) clear(), pc = cur.pc + cur.value ;
                         break ;
                     }
                     case bgeu: {
-                        if (cur.value != 4) clear(), pc += cur.value ;
+                        if (cur.value != 4) clear(), pc = cur.pc + cur.value ;
                         break ;
                     }
                     default:
@@ -1153,12 +1153,16 @@ public:
                 RStatus_update.push_back (make_pair (d, cur.value)) ;
             }
         }
+        printf("reg:") ;
+        for (int i = 0; i < 32; i ++) printf("%u ", reg[i]) ;
+        printf("\n") ;
+        ROB_commit.clear() ;
     }
 
     void run () {
         unsigned int clock = 0 ;
         while (1) {
-            printf("clock:%d pc:%x\n", clock ++, pc) ;
+            printf("\nclock:%d pc:%x\n", clock ++, pc) ;
             run_rob() ;
             run_lsbuffer() ;
             run_reservation() ;

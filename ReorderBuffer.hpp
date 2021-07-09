@@ -8,7 +8,7 @@ struct ROB {
     optype op ;
     bool ready = 0 ;
     unsigned int dest, value, pc ;
-    int LSBuffer_id ;
+    int LSBuffer_id, ROB_id ;
 
     void print() const {
         printf("instruction:%c op:%d ready:%d dest:%u value:%u pc:%x\n", instruction, op, ready, dest, value, pc) ;
@@ -45,6 +45,7 @@ public:
     }
 
     void push (ROB cur) {
+        cur.ROB_id = tail ;
         que[tail] = cur ;
         tail = (tail + 1) % max_size ;
     }

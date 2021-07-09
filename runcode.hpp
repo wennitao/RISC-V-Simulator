@@ -2,7 +2,7 @@
 #define RISCV_runcode
 
 // #define debug
-#define compare
+// #define compare
 
 #include <bits/stdc++.h>
 
@@ -18,7 +18,7 @@ std::vector<ROB> ROB_insert ;
 std::vector<RS> RS_insert ;
 std::vector<LSBuffer> LSB_insert ;
 std::vector<pair<int, int> > RStatus_insert ;
-std::vector<pair<int, unsigned int> > RStatus_update ;
+std::vector<pair<int, int> > RStatus_update ;
 std::vector<RS> Execute_ops ;
 std::vector<ROB> ROB_commit ;
 std::vector<pair<int, unsigned int> > CDB, CDB_next ;
@@ -100,9 +100,12 @@ public:
             registerStatus_next[cur.first].busy = true ;
         }
         for (int i = 0; i < RStatus_update.size(); i ++) {
-            pair<int, unsigned int> cur = RStatus_update[i] ;
-            registerStatus_next[cur.first].q = -1 ;
-            registerStatus_next[cur.first].busy = false ;
+            pair<int, int> cur = RStatus_update[i] ;
+            int d = cur.first, ROB_id = cur.second ;
+            if (registerStatus_next[d].q == ROB_id) {
+                registerStatus_next[d].q = -1 ;
+                registerStatus_next[d].busy = false ;
+            }
         }
     }
 
@@ -1185,13 +1188,13 @@ public:
                 switch (cur.op) {
                     case jal: {
                         reg[d] = cur.pc + 4 ;
-                        RStatus_update.push_back (make_pair (d, cur.pc + 4)) ;
+                        RStatus_update.push_back (make_pair (d, cur.ROB_id)) ;
                         if (cur.value != 4) clear(), pc = cur.pc + cur.value ;
                         break ;
                     }
                     case jalr: {
                         reg[d] = cur.pc + 4 ;
-                        RStatus_update.push_back (make_pair (d, cur.pc + 4)) ;
+                        RStatus_update.push_back (make_pair (d, cur.ROB_id)) ;
                         if (cur.value != cur.pc + 4) clear(), pc = cur.value ;
                         break ;
                     }
@@ -1231,7 +1234,7 @@ public:
                     printf("reg update %d %u\n", d, cur.value) ;
                 #endif
                 reg[d] = cur.value ;
-                RStatus_update.push_back (make_pair (d, cur.value)) ;
+                RStatus_update.push_back (make_pair (d, cur.ROB_id)) ;
             }
         }
         reg[0] = 0 ;

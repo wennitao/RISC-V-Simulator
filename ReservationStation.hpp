@@ -6,13 +6,13 @@
 #include "decode.hpp"
 
 struct RS {
-    bool busy ;
-    unsigned int vj, vk, dest, imm ;
+    bool busy = 1 ;
+    unsigned int vj = 0, vk = 0, dest = 0, imm = 0 ;
     int qj = -1, qk = -1 ;
     optype op ;
 
     void print() const {
-        printf("op:%d busy:%d vj:%u qj:%d vk:%u qk:%d dest:%u imm:%u\n", op, busy, vj, qj, vk, qk, dest, imm) ;
+        printf("op:%d busy:%d vj:%u qj:%d vk:%u qk:%d dest:%u imm:%u\n", op, (int)busy, vj, qj, vk, qk, dest, imm) ;
     }
 } ;
 

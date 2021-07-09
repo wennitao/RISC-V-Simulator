@@ -274,6 +274,7 @@ public:
     }
 
     void write_result () {
+        printf("pc:%x\n", pc) ;
         if (op.TYPE != 'B' && op.TYPE != 'S') {
             reg[op.rd] = result ;
         } else if (op.TYPE == 'S') {

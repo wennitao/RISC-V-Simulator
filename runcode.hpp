@@ -277,12 +277,15 @@ public:
         if (op.TYPE != 'B' && op.TYPE != 'S') {
             reg[op.rd] = result ;
         } else if (op.TYPE == 'S') {
+            printf("store to address:%u value:%u\n", store_pos, result) ;
             memory[store_pos] = result & ((1 << 8) - 1) ;
             memory[store_pos + 1] = (result >> 8) & ((1 << 8) - 1) ;
             memory[store_pos + 2] = (result >> 16) & ((1 << 8) - 1) ;
             memory[store_pos + 3] = (result >> 24) ;
         }
         reg[0] = 0 ;
+        for (int i = 0; i < 32; i ++) printf("%u ", reg[i]) ;
+        printf("\n") ;
     }
 
     void run () {

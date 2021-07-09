@@ -96,6 +96,7 @@ public:
     void run_RegisterStatus () {
         for (int i = 0; i < RStatus_insert.size(); i ++) {
             pair<int, int> cur = RStatus_insert[i] ;
+            // if (cur.first == 15) printf("RStatus 15 ROBID:%d busy\n", cur.second) ;
             registerStatus_next[cur.first].q = cur.second ;
             registerStatus_next[cur.first].busy = true ;
         }
@@ -103,6 +104,7 @@ public:
             pair<int, int> cur = RStatus_update[i] ;
             int d = cur.first, ROB_id = cur.second ;
             if (registerStatus_next[d].q == ROB_id) {
+                // printf("RStatus 15 ROBID:%d free\n", cur.second) ;
                 registerStatus_next[d].q = -1 ;
                 registerStatus_next[d].busy = false ;
             }
@@ -328,7 +330,7 @@ public:
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
                         cur.vj = reorderBuffer_pre.que[h].value ;
-                        cur.qj = 0 ;
+                        cur.qj = -1 ;
                     } else {
                         cur.qj = h ;
                     }
@@ -395,7 +397,7 @@ public:
                     int h = registerStatus_pre[op.rt].q ;
                     if (reorderBuffer_pre.que[h].ready) {
                         cur.vk = reorderBuffer_pre.que[h].value ;
-                        cur.qk = 0 ;
+                        cur.qk = -1 ;
                     } else {
                         cur.qk = h ;
                     }
@@ -735,7 +737,7 @@ public:
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
                         cur.vj = reorderBuffer_pre.que[h].value ;
-                        cur.qj = 0 ;
+                        cur.qj = -1 ;
                     } else {
                         cur.qj = h ;
                     }
@@ -753,6 +755,7 @@ public:
                 } else {
                     cur.vk = reg[op.rt]; cur.qk = -1 ;
                 }
+                // printf("ROBID:%d qj:%d qk:%d\n", registerStatus_pre[op.rs].q, cur.qj, cur.qk) ;
                 cur.busy = true; cur.dest = cur_ROB_pos ;
                 RS_insert.push_back (cur) ;
                 break ;
@@ -763,7 +766,7 @@ public:
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
                         cur.vj = reorderBuffer_pre.que[h].value ;
-                        cur.qj = 0 ;
+                        cur.qj = -1 ;
                     } else {
                         cur.qj = h ;
                     }
@@ -791,7 +794,7 @@ public:
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
                         cur.vj = reorderBuffer_pre.que[h].value ;
-                        cur.qj = 0 ;
+                        cur.qj = -1 ;
                     } else {
                         cur.qj = h ;
                     }
@@ -819,7 +822,7 @@ public:
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
                         cur.vj = reorderBuffer_pre.que[h].value ;
-                        cur.qj = 0 ;
+                        cur.qj = -1 ;
                     } else {
                         cur.qj = h ;
                     }
@@ -847,7 +850,7 @@ public:
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
                         cur.vj = reorderBuffer_pre.que[h].value ;
-                        cur.qj = 0 ;
+                        cur.qj = -1 ;
                     } else {
                         cur.qj = h ;
                     }
@@ -875,7 +878,7 @@ public:
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
                         cur.vj = reorderBuffer_pre.que[h].value ;
-                        cur.qj = 0 ;
+                        cur.qj = -1 ;
                     } else {
                         cur.qj = h ;
                     }
@@ -903,7 +906,7 @@ public:
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
                         cur.vj = reorderBuffer_pre.que[h].value ;
-                        cur.qj = 0 ;
+                        cur.qj = -1 ;
                     } else {
                         cur.qj = h ;
                     }
@@ -931,7 +934,7 @@ public:
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
                         cur.vj = reorderBuffer_pre.que[h].value ;
-                        cur.qj = 0 ;
+                        cur.qj = -1 ;
                     } else {
                         cur.qj = h ;
                     }
@@ -959,7 +962,7 @@ public:
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
                         cur.vj = reorderBuffer_pre.que[h].value ;
-                        cur.qj = 0 ;
+                        cur.qj = -1 ;
                     } else {
                         cur.qj = h ;
                     }
@@ -987,7 +990,7 @@ public:
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
                         cur.vj = reorderBuffer_pre.que[h].value ;
-                        cur.qj = 0 ;
+                        cur.qj = -1 ;
                     } else {
                         cur.qj = h ;
                     }

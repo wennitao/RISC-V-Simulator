@@ -42,7 +42,7 @@ void run () {
     }
 }
 int main() {
-    freopen("sample.data", "r", stdin) ;
+    // freopen("sample.data", "r", stdin) ;
     input () ;
     run () ;
     return 0 ;

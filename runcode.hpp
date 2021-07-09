@@ -127,8 +127,11 @@ public:
                         unsigned int result = cur.vk ;
                         if (cur.op == sb) result = result & ((1 << 8) - 1) ;
                         else if (cur.op == sh) result = result & ((1 << 16) - 1) ;
-                        memory[address] = result ;
-                        printf("LSB store %u %u\n", address, result) ;
+                        memory[address] = result & ((1 << 8) - 1) ;
+                        memory[address + 1] = (result >> 8) & ((1 << 8) - 1) ;
+                        memory[address + 2] = (result >> 16) & ((1 << 8) - 1) ;
+                        memory[address + 3] = (result >> 24) ;
+                        printf("********** LSB store %u %u **********\n", address, result) ;
                     } else {
                         printf("LSB update commit: pos %d\n", cur.dest) ;
                         reorderBuffer_next.update (cur.dest, 0) ;
@@ -169,7 +172,7 @@ public:
         op.print() ;
         int cur_ROB_pos = reorderBuffer_next.nextPos(), LSB_pos ;
         printf("issue insert ROB pos:%d\n", cur_ROB_pos) ;
-        if (op.rd != 0 && op.TYPE != 'S') {
+        if (op.rd != 0 && op.TYPE != 'S' && op.TYPE != 'E') {
             RStatus_insert.push_back (make_pair (op.rd, cur_ROB_pos)) ;     
         }
         switch (op.type) {
@@ -981,6 +984,7 @@ public:
         ROB cur ;
         cur.instruction = op.TYPE; cur.dest = op.rd; cur.ready = false ;
         cur.op = op.type; cur.pc = op.pc; cur.LSBuffer_id = LSB_pos ;
+        if (cur.instruction == 'E') cur.ready = true ;
         ROB_insert.push_back (cur) ;
     }
 

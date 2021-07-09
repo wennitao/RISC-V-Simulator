@@ -6,10 +6,11 @@
 struct ROB {
     char instruction ;
     optype op ;
-    bool ready ;
+    bool ready = 0 ;
     unsigned int dest, value, pc ;
+    int LSBuffer_id ;
 
-    void print() {
+    void print() const {
         printf("instruction:%c op:%d ready:%d dest:%u value:%u pc:%x\n", instruction, op, ready, dest, value, pc) ;
     }
 } ;
@@ -32,14 +33,18 @@ public:
         return head == tail ;
     }
 
+    void print() const {
+        printf ("---------------------------\nprint ROB\n") ;
+        for (int i = head; i != tail; i = (i + 1) % max_size)
+            printf("i:%d ", i), que[i].print() ;
+        printf("---------------------------\n") ;
+    }
+
     int nextPos () const {
         return tail ;
     }
 
-    void push (operation_parameter op) {
-        ROB cur ;
-        cur.instruction = op.TYPE; cur.dest = op.rd; cur.ready = false ;
-        cur.op = op.type; cur.pc = op.pc ;
+    void push (ROB cur) {
         que[tail] = cur ;
         tail = (tail + 1) % max_size ;
     }

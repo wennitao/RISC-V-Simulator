@@ -15,6 +15,10 @@ public:
         head = tail = 0 ;
     }
 
+    bool empty() const {
+        return head == tail ;
+    }
+
     bool full () const {
         return (tail + 1) % max_size == head ;
     }

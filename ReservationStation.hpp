@@ -11,7 +11,7 @@ struct RS {
     int qj = -1, qk = -1 ;
     optype op ;
 
-    void print() {
+    void print() const {
         printf("op:%d busy:%d vj:%u qj:%d vk:%u qk:%d dest:%u imm:%u\n", op, busy, vj, qj, vk, qk, dest, imm) ;
     }
 } ;
@@ -37,6 +37,13 @@ public:
 
     bool full () const {
         return (tail + 1) % max_size == head ;
+    }
+
+    void print() const {
+        printf ("---------------------------\nprint RS\n") ;
+        for (int i = head; i != tail; i = (i + 1) % max_size)
+            printf("i:%d ", i), que[i].print() ;
+        printf("---------------------------\n") ;
     }
 
     RS front () const {

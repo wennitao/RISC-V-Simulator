@@ -2,13 +2,13 @@
 #define RISCV_LoadStoreBuffer
 
 struct LSBuffer {
-    bool store ;
+    bool store = 0, commit = 0 ;
     unsigned int vj, vk, A, dest ;
     int qj = -1, qk = -1 ;
     optype op ;
 
     void print() {
-        printf("store:%d vj:%u qj:%u vk:%u qk:%u A:%u dest:%u\n", store, vj, qj, vk, qk, A, dest) ;
+        printf("store:%d vj:%u qj:%d vk:%u qk:%d A:%u dest:%u\n", store, vj, qj, vk, qk, A, dest) ;
     }
 } ;
 
@@ -30,6 +30,10 @@ public:
         return head == tail ;
     }
 
+    int nextPos () const {
+        return tail ;
+    }
+
     void push (LSBuffer cur) {
         que[tail] = cur ;
         tail = (tail + 1) % max_size ;
@@ -48,6 +52,10 @@ public:
             if (que[i].qj == rob_id) que[i].qj = -1, que[i].vj = val ;
             if (que[i].qk == rob_id) que[i].qk = -1, que[i].vk = val ;
         }
+    }
+
+    void update_commit (int id) {
+        que[id].commit = true ;
     }
 
     void clear() {

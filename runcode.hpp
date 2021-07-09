@@ -1,7 +1,8 @@
 #ifndef RISCV_runcode
 #define RISCV_runcode
 
-#define debug
+// #define debug
+#define compare
 
 #include <bits/stdc++.h>
 
@@ -145,7 +146,9 @@ public:
                         memory[address + 1] = (result >> 8) & ((1 << 8) - 1) ;
                         memory[address + 2] = (result >> 16) & ((1 << 8) - 1) ;
                         memory[address + 3] = (result >> 24) ;
-                        printf("store to address:%u value:%u\n", address, result) ;
+                        #ifdef compare
+                            printf("store to address:%u value:%u\n", address, result) ;
+                        #endif
                         #ifdef debug
                             printf("********** LSB store %u %u **********\n", address, result) ;
                         #endif
@@ -673,7 +676,7 @@ public:
                 break ;
             }
             case slli: {
-                RS cur; cur.vk = op.imm; cur.qk = -1; cur.op = slli ;
+                RS cur; cur.vk = op.shamt; cur.qk = -1; cur.op = slli ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -690,7 +693,7 @@ public:
                 break ;
             }
             case srli: {
-                RS cur; cur.vk = op.imm; cur.qk = -1; cur.op = srli ;
+                RS cur; cur.vk = op.shamt; cur.qk = -1; cur.op = srli ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -707,7 +710,7 @@ public:
                 break ;
             }
             case srai: {
-                RS cur; cur.vk = op.imm; cur.qk = -1; cur.op = srai ;
+                RS cur; cur.vk = op.shamt; cur.qk = -1; cur.op = srai ;
                 if (registerStatus_pre[op.rs].busy) {
                     int h = registerStatus_pre[op.rs].q ;
                     if (reorderBuffer_pre.que[h].ready) {
@@ -1232,11 +1235,13 @@ public:
             }
         }
         reg[0] = 0 ;
-        if (!ROB_commit.empty()) {
-            printf("reg:") ;
-            for (int i = 0; i < 32; i ++) printf("%u ", reg[i]) ;
-            printf("\n") ;
-        }
+        #ifdef compare
+            if (!ROB_commit.empty()) {
+                printf("reg:") ;
+                for (int i = 0; i < 32; i ++) printf("%u ", reg[i]) ;
+                printf("\n") ;
+            }
+        #endif
         ROB_commit.clear() ;
     }
 

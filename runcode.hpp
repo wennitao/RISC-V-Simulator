@@ -48,12 +48,12 @@ public:
     void run_rob() {
         for (int i = 0; i < ROB_insert.size(); i ++) {
             reorderBuffer_next.push (ROB_insert[i]) ;
-            printf("ROB insert "); ROB_insert[i].print() ;
+            // printf("ROB insert "); ROB_insert[i].print() ;
         }
         for (int i = 0; i < CDB.size(); i ++) {
             pair<int, unsigned int> cur = CDB[i] ;
             reorderBuffer_next.update (cur.first, cur.second) ;
-            printf("ROB update %d %u\n", cur.first, cur.second) ;
+            // printf("ROB update %d %u\n", cur.first, cur.second) ;
         }
         if (reorderBuffer_next.empty()) return ;
         ROB cur = reorderBuffer_next.front() ;
@@ -65,7 +65,7 @@ public:
 
     void run_reservation() {
         for (int i = 0; i < RS_insert.size(); i ++) {
-            printf("RS insert "); RS_insert[i].print() ;
+            // printf("RS insert "); RS_insert[i].print() ;
             reservationStation_next.push (RS_insert[i]) ;
         }
         if (!reservationStation_next.empty ()) {
@@ -77,7 +77,7 @@ public:
         }
         for (int i = 0; i < CDB.size(); i ++) {
             pair<int, unsigned int> cur = CDB[i] ;
-            printf("RS update %d %d\n", cur.first, cur.second) ;
+            // printf("RS update %d %d\n", cur.first, cur.second) ;
             reservationStation_next.update (cur.first, cur.second) ;
         }
     }
@@ -97,7 +97,7 @@ public:
 
     void run_lsbuffer () {
         for (int i = 0; i < LSB_insert.size(); i ++) {
-            printf("LSB insert "); LSB_insert[i].print() ;
+            // printf("LSB insert "); LSB_insert[i].print() ;
             loadStoreBuffer_next.push (LSB_insert[i]) ;
         }
         if (!loadStoreBuffer_next.empty()) {
@@ -119,7 +119,7 @@ public:
                         result = ((unsigned int)memory[address + 1] << 8) + memory[address] ;
                     }
                     CDB_next.push_back (make_pair (cur.dest, result)) ;
-                    printf("LSB load from:%u result:%u\n", address, result) ;
+                    // printf("LSB load from:%u result:%u\n", address, result) ;
                 } else {
                     if (cur.commit) {
                         loadStoreBuffer_next.pop() ;
@@ -131,9 +131,10 @@ public:
                         memory[address + 1] = (result >> 8) & ((1 << 8) - 1) ;
                         memory[address + 2] = (result >> 16) & ((1 << 8) - 1) ;
                         memory[address + 3] = (result >> 24) ;
-                        printf("********** LSB store %u %u **********\n", address, result) ;
+                        printf("store to address:%u value:%u\n", address, result) ;
+                        // printf("********** LSB store %u %u **********\n", address, result) ;
                     } else {
-                        printf("LSB update commit: pos %d\n", cur.dest) ;
+                        // printf("LSB update commit: pos %d\n", cur.dest) ;
                         reorderBuffer_next.update (cur.dest, 0) ;
                     }
                 }
@@ -141,7 +142,7 @@ public:
         }
         for (int i = 0; i < CDB.size(); i ++) {
             pair<int, unsigned int> cur = CDB[i] ;
-            printf("LSB update %d %u\n", cur.first, cur.second) ;
+            // printf("LSB update %d %u\n", cur.first, cur.second) ;
             loadStoreBuffer_next.update (cur.first, cur.second) ;
         }
     }
@@ -167,11 +168,10 @@ public:
         if (reorderBuffer_next.full()) return ;
         if (reservationStation_next.full()) return ;
         if (loadStoreBuffer_next.full()) return ;
-        printf("issue ") ;
         operation_parameter op = instructionQueue_next.front(); instructionQueue_next.pop() ;
-        op.print() ;
+        // printf("issue "); op.print() ;
         int cur_ROB_pos = reorderBuffer_next.nextPos(), LSB_pos ;
-        printf("issue insert ROB pos:%d\n", cur_ROB_pos) ;
+        // printf("issue insert ROB pos:%d\n", cur_ROB_pos) ;
         if (op.rd != 0 && op.TYPE != 'S' && op.TYPE != 'E') {
             RStatus_insert.push_back (make_pair (op.rd, cur_ROB_pos)) ;     
         }
@@ -423,7 +423,7 @@ public:
                 } else {
                     cur.vj = reg[op.rs]; cur.qj = -1 ;
                 }
-                printf("issue "); cur.print() ;
+                // printf("issue "); cur.print() ;
                 LSB_insert.push_back (cur) ;
                 break ;
             }
@@ -990,9 +990,8 @@ public:
 
     void execute () {
         for (int i = 0; i < Execute_ops.size(); i ++) {
-            printf("execute ") ;
             RS rs = Execute_ops[i] ;
-            rs.print() ;
+            // printf("execute "); rs.print() ;
             unsigned int result ;
             switch (rs.op) {
                 case lui: {
@@ -1008,7 +1007,7 @@ public:
                 }
                 case jalr: {
                     result = (rs.vj + rs.vk) & ~1 ;
-                    printf("execute jalr result %u\n", result) ;
+                    // printf("execute jalr result %u\n", result) ;
                     break ;
                 }
                 case beq: {
@@ -1148,7 +1147,7 @@ public:
     void commit () {
         for (int i = 0; i < ROB_commit.size(); i ++) {
             ROB cur = ROB_commit[i] ;
-            printf("commit "); cur.print() ;
+            // printf("commit "); cur.print() ;
             int d = cur.dest ;
             if (cur.instruction == 'B') {
                 switch (cur.op) {
@@ -1196,14 +1195,14 @@ public:
             } else if (cur.instruction == 'S') {
                 loadStoreBuffer_next.update_commit (cur.LSBuffer_id) ;
             } else {
-                printf("reg update %d %u\n", d, cur.value) ;
+                // printf("reg update %d %u\n", d, cur.value) ;
                 reg[d] = cur.value ;
                 RStatus_update.push_back (make_pair (d, cur.value)) ;
             }
         }
         reg[0] = 0 ;
         if (!ROB_commit.empty()) {
-            printf("reg:") ;
+            // printf("reg:") ;
             for (int i = 0; i < 32; i ++) printf("%u ", reg[i]) ;
             printf("\n") ;
         }
@@ -1213,12 +1212,12 @@ public:
     void run () {
         unsigned int clock = 0 ;
         while (1) {
-            printf("\nclock:%d pc:%x\n", clock ++, pc) ;
+            // printf("\nclock:%d pc:%x\n", clock ++, pc) ;
             run_rob() ;
-            reorderBuffer_next.print() ;
+            // reorderBuffer_next.print() ;
             run_lsbuffer() ;
             run_reservation() ;
-            reservationStation_next.print() ;
+            // reservationStation_next.print() ;
             run_RegisterStatus() ;
             run_inst_fetch_queue() ;
             update () ;
